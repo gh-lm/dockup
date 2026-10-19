@@ -1,0 +1,10 @@
+# The old addresses, kept working now that the documents are
+# pages on this site. 302 rather than 301: a permanent redirect is cached
+# in the browser for good, and these targets may yet move again.
+#
+# Never point a rule at a .html address. Pages serves /name from name.html
+# and sends /name.html on to /name, so a rule /name -> /name.html bounces
+# between the two for ever. The bare names below need no rule at all.
+/bugs            /security               302
+/docs            /documentation          302
+/license         /licence                302

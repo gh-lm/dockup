@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Dockup banner</title>
+<style>
+  @font-face {
+    font-family: "Trindle Sans";
+    src: url("../../../app/static/fonts/TrindleSans-Variable.woff2") format("woff2-variations");
+    font-weight: 100 900;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { width: 1280px; height: 360px; }
+  body {
+    font-family: "Trindle Sans", system-ui, sans-serif;
+    background: #1c1e26; color: #fafafa;
+    display: flex; align-items: center; padding: 0 84px; gap: 56px;
+    position: relative; overflow: hidden;
+  }
+  .mark { flex: none; width: 168px; height: 168px; }
+  .words { display: grid; gap: 14px; }
+  h1 { font-size: 96px; font-weight: 700; letter-spacing: -0.03em; line-height: 1; }
+  p { font-size: 28px; color: #c2c2cc; line-height: 1.3; }
+  .chips { display: flex; gap: 14px; margin-top: 10px; }
+  .chip {
+    font-size: 21px; font-weight: 600; padding: 9px 20px; border-radius: 999px;
+    background: #343844; border: 1px solid rgba(255,255,255,.14); color: #fafafa;
+  }
+  .chip.accent { background: #fbc711; border-color: #fbc711; color: #645007; }
+</style>
+</head>
+<body>
+  <svg class="mark" viewBox="0 0 48 48" role="img" aria-label="Dockup mark">
+    <rect width="48" height="48" rx="10" fill="#FBC711"/>
+    <rect x="7" y="26" width="15" height="15" rx="3" fill="#ffffff"/>
+    <rect x="26" y="26" width="15" height="15" rx="3" fill="#111827"/>
+    <rect x="16.5" y="7" width="15" height="15" rx="3" fill="#111827"/>
+  </svg>
+  <div class="words">
+    <h1>Dockup</h1>
+    <p>A self-hosted Docker Compose stack manager for home labs.</p>
+    <div class="chips">
+      <span class="chip accent">Every stack, one window</span>
+      <span class="chip">Backups that restore</span>
+      <span class="chip">Two-factor sign-in</span>
+    </div>
+  </div>
+</body>
+</html>

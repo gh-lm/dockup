@@ -1,0 +1,65 @@
+services:
+  dockup:
+    # Pre-built image, built by GitHub and published with every release.
+    # Updating is the same job as any other stack: open Dockup in its own
+    # list and press Update, or from a terminal
+    # `docker compose pull && docker compose up -d`. Never a local build.
+    # Building from source is still possible if you want it: replace this
+    # line with `build: .` in compose.override.yaml.
+    image: ghcr.io/gh-lm/dockup:latest
+    container_name: dockup
+    restart: unless-stopped
+    cap_drop: [ALL]
+    cap_add: [CHOWN, SETUID, SETGID, DAC_OVERRIDE]
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 200
+    mem_limit: 512m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    ports:
+      # localhost only - Tailscale Serve is the only intended way in.
+      # Publishing the port without a host IP would also expose it on the LAN.
+      # Left number is the host port and is yours to change; the right one is
+      # fixed at 5001, the port gunicorn listens on inside the container.
+      - "127.0.0.1:4000:5001"
+    environment:
+      # The one and only secret, and the only setting that lives outside
+      # Dockup's own settings page. It signs your login, so it has to
+      # exist before there is a page to sign in to, and it must be yours
+      # alone: anybody who knows it can forge a login to your Dockup.
+      #
+      # Replace the words below with a long random string of your own.
+      # Generate one with:
+      #   python3 -c "import secrets;print(secrets.token_urlsafe(48))"
+      # Or leave this line exactly as it is and put the key in a .env
+      # file beside this compose file instead, which keeps it out of the
+      # file you are most likely to copy or share:
+      #   echo "SECRET_KEY=$(python3 -c 'import secrets;print(secrets.token_urlsafe(48))')" > .env
+      #
+      # Dockup refuses to start while this still says CHANGE-ME, so a
+      # forgotten key stops the container instead of leaving every
+      # install sharing one secret.
+      SECRET_KEY: ${SECRET_KEY:-CHANGE-ME-TO-YOUR-OWN-LONG-RANDOM-SECRET}
+      TZ: ${TZ:-Europe/London}
+      # Dockup asks the Docker socket to spin up short-lived helper
+      # containers for backups (tar a volume, tar a bind-mount path).
+      # The daemon resolves bind-mount sources against the HOST
+      # filesystem, not Dockup's own container - so Dockup needs to
+      # know its own data folder's real host path, not just where it
+      # sees it internally (/app/data). Set this if you put this folder
+      # somewhere other than /opt/stacks/dockup.
+      DOCKUP_DATA_HOST_PATH: ${DOCKUP_DATA_HOST_PATH:-/opt/stacks/dockup/data}
+    volumes:
+      - ./data:/app/data
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /opt/stacks:/opt/stacks
+      # Optional: only if you've installed the dockup-companion (host OS
+      # update checks + Tailscale Serve management, see companion/ and
+      # the runbook - Settings has a one-click installer for the host
+      # side of this; uncomment this line and restart Dockup afterward
+      # to finish connecting it).
+      # - /run/dockup-companion.sock:/run/dockup-companion.sock

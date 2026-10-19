@@ -1,0 +1,670 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Dockup - home-lab Docker Compose manager</title>
+<meta name="description" content="Self-hosted Docker Compose stack manager for home labs, with a real login and 2FA.">
+<link rel="canonical" href="https://dockup.lightmorphic.com/">
+<link rel="icon" href="dockup.svg" type="image/svg+xml">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="Dockup">
+<meta property="og:description" content="A home-lab compose stack manager with a proper login. One window, no lock-in.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://dockup.lightmorphic.com/">
+<meta property="og:image" content="https://dockup.lightmorphic.com/social-card.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Dockup">
+<meta name="twitter:description" content="A home-lab compose stack manager with a proper login. One window, no lock-in.">
+<meta name="twitter:image" content="https://dockup.lightmorphic.com/social-card.png">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://apps.lightmorphic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://apps.lightmorphic.com; font-src 'self'; connect-src 'self' https://apps.lightmorphic.com; form-action 'none'; base-uri 'none'; object-src 'none'; upgrade-insecure-requests">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Dockup",
+  "operatingSystem": "Linux",
+  "applicationCategory": "DeveloperApplication",
+  "description": "Self-hosted Docker Compose stack manager for home labs with secure login, live logs, web terminal, pruning tools, container adoption and daily backups.",
+  "url": "https://dockup.lightmorphic.com/",
+  "softwareVersion": "1.7.13",
+  "image": "https://dockup.lightmorphic.com/social-card.png",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "GBP" },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Lightmorphic",
+    "url": "https://lightmorphic.com"
+  }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Does Dockup need root on my server?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Only for two things Docker access alone can't reach - host OS update checks and Tailscale Serve - and only if you opt into the small companion service. Everything else runs through the same Docker socket any container manager needs." }
+    },
+    {
+      "@type": "Question",
+      "name": "Does updating Dockup mean rebuilding it?",
+      "acceptedAnswer": { "@type": "Answer", "text": "No. Dockup ships as a pre-built image, and it sits in the stacks folder with everything it manages, so it appears in its own list. Open it and press Update, exactly as you would for any other stack. No git, no local build, ever." }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I run Dockup on a public VPS?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Not yet recommended. Dockup is built and hardened for a machine on your own network, reached over Tailscale or your LAN - it hasn't been hardened for direct internet exposure." }
+    },
+    {
+      "@type": "Question",
+      "name": "What happens to my stacks if I stop using Dockup?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Nothing. Every stack stays a plain folder with a real compose file, unchanged by Dockup managing it - docker compose or any other tool works on it at any time." }
+    },
+    {
+      "@type": "Question",
+      "name": "What happens when Dockup updates itself?",
+      "acceptedAnswer": { "@type": "Answer", "text": "The same as any other stack: open it, press Update. The one step it cannot do to itself, replacing its own container, is handed to a short-lived helper, so the page goes quiet for a few seconds and comes back on the new version." }
+    },
+    {
+      "@type": "Question",
+      "name": "Do I have to install the companion?",
+      "acceptedAnswer": { "@type": "Answer", "text": "No. It is entirely optional and separate. Without it you lose only host OS update checks and the per-stack Tailscale Serve switches; everything else works." }
+    },
+    {
+      "@type": "Question",
+      "name": "What does it back up?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Its own settings, registry details and history, every day, kept for as long as you choose. A stack's own data is a separate, deliberate job you ask for per stack." }
+    },
+    {
+      "@type": "Question",
+      "name": "Can it adopt what I already run?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes. Dockup looks over your machine for compose projects and loose containers it isn't managing and offers to take them on, one at a time or all together. Nothing is restarted to do it." }
+    },
+    {
+      "@type": "Question",
+      "name": "Where do passwords and keys live?",
+      "acceptedAnswer": { "@type": "Answer", "text": "In Dockup's own settings page, stored encrypted. The only exception is the key that signs your login, which has to exist before there is a page to sign in to, so it sits in the compose file or a .env beside it." }
+    }
+  ]
+}
+</script>
+<style>
+@font-face {
+  font-family: "Trindle Sans";
+  src: url("fonts/TrindleSans-Variable.woff2") format("woff2-variations");
+  font-weight: 100 900;
+  font-display: swap;
+}
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+}
+/* Dark only. No light theme, no switcher. */
+:root {
+  color-scheme: dark;
+  /* A deep charcoal page, never black: a shadow cannot show on
+     near-black, which is what makes panels look flat. Three layers,
+     each lighter than the last: page, panel, raised card. */
+  --bg: #1c1e26; --fg: #fafafa;
+  --border: #454955; --muted: #3a3d48; --muted-fg: #c2c2cc;
+  --panel: #282b34; --panel-border: rgba(255,255,255,.09);
+  --raised: #343844; --raised-border: rgba(255,255,255,.12);
+  --field: #14151b; --field-border: #7e8494;
+  --edge-light: inset 0 1px 0 rgba(255,255,255,.12);
+  --shadow-panel: var(--edge-light), 0 0 0 1px rgba(0,0,0,.45),
+    0 4px 8px rgba(0,0,0,.35), 0 16px 32px -12px rgba(0,0,0,.55);
+  --shadow-raised: inset 0 1px 0 rgba(255,255,255,.10), 0 0 0 1px rgba(0,0,0,.3),
+    0 2px 6px rgba(0,0,0,.3), 0 8px 16px -8px rgba(0,0,0,.4);
+  --accent: #fbc711; --accent-hover: #ddaf0f; --on-accent: #645007;
+  --accent-container: #4b3c05; --on-accent-container: #fde694;
+  --brand-navy: #111827;
+  --link: #80c2f9;
+  --warning: #ffc006; --warning-bg: #382a01;
+  --radius: .875rem; --panel-radius: 1.375rem;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; font-family: "Trindle Sans", system-ui, sans-serif;
+  background: var(--bg); color: var(--fg); line-height: 1.6; font-size: 1.0625rem;
+}
+a { color: var(--link); }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.skip-link {
+  position: absolute; left: -9999px; top: 0; z-index: 100;
+  background: var(--panel); color: var(--fg); padding: .75rem 1.25rem;
+  border-radius: var(--radius); box-shadow: var(--shadow-panel);
+}
+.skip-link:focus { left: 1rem; top: 1rem; }
+.wrap { max-width: 64rem; margin: 0 auto; padding: 1.5rem; }
+/* Sticky menu bar. The nine-dot Lightmorphic launcher is the last item
+   on the right; the section links sit just before it. No JavaScript of
+   our own - below 640px the links simply wrap onto their own row rather
+   than hiding behind a hamburger that would need scripting. */
+.topnav {
+  position: sticky; top: 0; z-index: 50;
+  background: var(--bg); border-bottom: 1px solid var(--border);
+}
+.topnav-inner {
+  max-width: 78rem; margin: 0 auto; padding: .5rem 1.5rem;
+  display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap;
+}
+.topnav-brand {
+  display: flex; align-items: center; gap: .625rem;
+  text-decoration: none; color: var(--fg); font-weight: 700; font-size: 1rem;
+}
+.topnav-links {
+  display: flex; align-items: center; gap: 1.5rem;
+  list-style: none; margin: 0 0 0 auto; padding: 0;
+}
+.topnav-links a { color: var(--muted-fg); text-decoration: none; font-weight: 600; font-size: .9375rem; }
+.topnav-links a:hover { color: var(--fg); }
+.topnav-inner #all-apps { display: flex; align-items: center; }
+@media (max-width: 640px) {
+  .topnav-inner { gap: .5rem 1rem; padding: .5rem 1rem; }
+  .topnav-brand span { display: none; }
+  .topnav-inner #all-apps { margin-left: auto; }
+  .topnav-links { order: 3; width: 100%; margin: 0; gap: .25rem 1rem; flex-wrap: wrap; justify-content: space-between; }
+  .topnav-links a { white-space: nowrap; }
+}
+
+header.hero { padding: 3rem 0 2.5rem; }
+/* The hero is the single most important screen on the page - it gets
+   its own wider container than the rest of the page's 64rem reading
+   width, so the screenshot sitting beside the copy has real room
+   instead of being squeezed. Below 960px there isn't room for both
+   side by side without cramming either the copy or the screenshot -
+   stack them instead, screenshot first so it's still the very first
+   thing a visitor sees on a narrow screen too. */
+.hero-wrap { max-width: 78rem; }
+.hero-grid { display: grid; grid-template-columns: 1fr 1.15fr; gap: 3rem; align-items: center; }
+@media (max-width: 960px) {
+  .hero-grid { grid-template-columns: 1fr; gap: 2rem; }
+  .hero-grid .shot { order: -1; }
+}
+h1 { font-size: clamp(2rem, 5.5vw, 3rem); font-weight: 800; letter-spacing: -.02em; line-height: 1.15; margin: 0 0 1rem; max-width: 21ch; }
+.lede { font-size: 1.1875rem; color: var(--muted-fg); max-width: 56ch; margin: 0 0 1.75rem; }
+.lede strong { color: var(--fg); }
+.cta-row { display: flex; gap: .875rem; flex-wrap: wrap; align-items: center; }
+.btn {
+  display: inline-block; font-weight: 700; text-decoration: none;
+  padding: .75rem 1.5rem; border-radius: var(--radius);
+  background: var(--accent); color: var(--on-accent);
+}
+.btn:hover { background: var(--accent-hover); }
+.btn.ghost { background: var(--muted); color: var(--fg); border: 1px solid var(--border); }
+.note {
+  background: var(--warning-bg); color: var(--warning);
+  border-radius: var(--radius); padding: .625rem 1rem; font-weight: 600;
+  max-width: fit-content; margin: 1.75rem 0 0; font-size: .9375rem;
+}
+.tag-row { display: flex; flex-wrap: wrap; gap: .5rem; list-style: none; margin: 1.5rem 0 0; padding: 0; }
+.tag { border-radius: 999px; padding: .375rem .875rem; font-size: .875rem; font-weight: 700; }
+.tag-teal { background: #002d29; color: #8dcfc9; }
+.tag-indigo { background: #1b2451; color: #a8b1dd; }
+.tag-green { background: #173418; color: #aedbb0; }
+.tag-amber { background: #4d3a02; color: #ffe38f; }
+.panel {
+  background: var(--panel); border: 1px solid var(--panel-border);
+  border-radius: var(--panel-radius); box-shadow: var(--shadow-panel); padding: 1.75rem;
+}
+/* Cards sit in bands across the full width, each band split its own
+   way, so the page reads as a set of different-sized tiles rather than
+   a wall of identical ones. Neighbouring bands never split the same
+   way, every band fills the width, and there is no short last row. */
+main h2[id], main h2.visually-hidden[id] { scroll-margin-top: 5.5rem; }
+.band { display: grid; gap: 2.25rem; margin: 2.25rem 0; }
+/* The last line in a card has no margin under it, so the card is only
+   as tall as what it holds rather than carrying a strip of empty space
+   along its foot. */
+.band .panel > :last-child, .highlight-grid .panel > :last-child,
+.two .panel > :last-child { margin-bottom: 0; }
+.band.thirds { grid-template-columns: 1fr 1fr 1fr; }
+/* A band of two is split in proportion to what the two cards hold, so
+   they come out the same height and neither is left with empty space
+   at its foot. The numbers are measured, not guessed. */
+.band.pair-11 { grid-template-columns: 1fr 1.1fr; }
+.band.pair-13 { grid-template-columns: 1.3fr 1fr; }
+.band.pair-125 { grid-template-columns: 1fr 1.25fr; }
+.band.pair-even { grid-template-columns: 1fr 1fr; }
+.band.pair-16 { grid-template-columns: 1fr 1.6fr; }
+.band.pair-15 { grid-template-columns: 1fr 1.5fr; }
+.highlight-grid { display: grid; grid-template-columns: 1.75fr 1fr; gap: 2.25rem; margin: 3rem 0 2.25rem; }
+/* A tile holding sentences is never squeezed into a thin column: below
+   the width where three of them still read properly the bands
+   re-split, and on a phone every tile takes the full width. */
+@media (max-width: 1100px) {
+  .band.thirds { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 868px) {
+  .band, .highlight-grid { grid-template-columns: 1fr; }
+}
+.panel.highlight {
+  background: var(--accent-container); border-color: transparent;
+}
+.panel.highlight h3 { font-size: 1.25rem; }
+.panel.highlight .ico { width: 32px; height: 32px; }
+.panel.highlight .ico.accent { color: var(--on-accent-container); }
+.panel.highlight p { color: var(--on-accent-container); opacity: .8; }
+/* These used to be .grid rules. The grid became bands, and without
+   this an inline SVG with no size of its own grows to fill its card -
+   which is exactly what happened: 26px icons became 400px ones. */
+.band h3 { margin: 0 0 .375rem; font-size: 1.0625rem; }
+.band p { margin: 0; color: var(--muted-fg); font-size: .9375rem; }
+.band .ico, .highlight-grid .ico { width: 26px; height: 26px; margin-bottom: .75rem; color: var(--fg); flex: none; }
+.band .ico.accent, .highlight-grid .ico.accent { color: var(--accent); }
+h2 { font-size: 1.75rem; font-weight: 700; letter-spacing: -.01em; margin: 3rem 0 1rem; }
+pre {
+  background: var(--field); color: #d6d8e0; border-radius: var(--radius);
+  padding: 1.125rem 1.25rem; overflow-x: auto; font-size: .875rem; line-height: 1.6;
+}
+pre .c { color: #6a6f85; }
+.two { display: grid; grid-template-columns: 2fr 1fr; gap: 1.25rem; align-items: start; }
+@media (max-width: 760px) { .two { grid-template-columns: 1fr; } }
+/* ---- footer: brand, pages, then legal ---- */
+
+.foot {
+  border-top: 1px solid var(--panel-border); margin-top: 4rem;
+  padding: 2.75rem 0 2.25rem; color: var(--muted-fg); font-size: .875rem;
+}
+.foot .wrap, .legal .wrap { padding-top: 0; padding-bottom: 0; }
+.foot-inner {
+  display: flex; flex-wrap: wrap; gap: 2rem;
+  align-items: flex-start; justify-content: space-between;
+}
+.foot-brand { display: flex; flex-direction: column; align-items: flex-start; gap: 1rem; max-width: 24rem; }
+.foot-lockup {
+  display: inline-flex; align-items: center; gap: .6rem;
+  font-size: 1.0625rem; font-weight: 700; letter-spacing: -.01em;
+  color: var(--fg); text-decoration: none; padding: .35rem 0;
+}
+.foot-lockup:hover { color: var(--accent); }
+.foot-tagline, .foot-note { margin: 0; color: var(--muted-fg); font-size: .9375rem; line-height: 1.65; }
+.foot-note { font-size: .8125rem; }
+/* Three blocks spread across the width: the name and what this is on
+   the left, the project links in the middle, the pages hard right
+   against the same edge as everything else. Equal columns would not do
+   it, because each block is a different width and the space left over
+   would land unevenly. */
+.foot-nav { display: flex; flex-direction: column; min-width: 0; }
+.foot-nav.foot-mid { text-align: center; }
+.foot-nav.foot-end { text-align: right; }
+.foot-nav-title {
+  margin: 0 0 .875rem;
+  font-size: .75rem; font-weight: 700; letter-spacing: .07em;
+  text-transform: uppercase; color: var(--muted-fg);
+}
+.foot-nav-links { list-style: none; margin: 0; padding: 0; display: grid; }
+.foot-nav a {
+  display: inline-flex; align-items: center; min-height: 44px;
+  color: var(--fg); text-decoration: none; font-size: .9375rem; font-weight: 600;
+}
+.foot-nav a:hover { color: var(--accent); text-decoration: underline; }
+/* Stacked or paired up, centred and right-aligned columns read badly,
+   so everything goes back to the left edge. */
+@media (max-width: 900px) {
+  .foot-inner { justify-content: flex-start; gap: 2rem 3rem; }
+  .foot-nav.foot-mid, .foot-nav.foot-end { text-align: left; }
+}
+@media (max-width: 560px) { .foot-inner { flex-direction: column; } }
+
+.legal { border-top: 1px solid var(--panel-border); padding: 1.25rem 0 3rem; }
+/* The legal links sit level with the last line of the address rather
+   than floating up beside the first. */
+.legal-inner { display: flex; flex-wrap: wrap; gap: 1rem 2rem; align-items: flex-end; justify-content: space-between; }
+.legal-text { margin: 0; color: var(--muted-fg); font-size: .8125rem; line-height: 1.6; }
+.legal-links { display: flex; flex-wrap: wrap; gap: 1.25rem; margin-left: auto; justify-content: flex-end; }
+.legal-links a { color: var(--muted-fg); text-decoration: none; font-size: .8125rem; font-weight: 600; padding: .55rem 0; }
+.legal-links a:hover { color: var(--fg); text-decoration: underline; }
+@media (max-width: 640px) {
+  .legal-links { margin-left: 0; justify-content: flex-start; gap: 1rem; }
+}
+.shot { margin: 0; }
+.shot svg { width: 100%; height: auto; border-radius: var(--panel-radius); box-shadow: var(--shadow-panel); display: block; }
+
+/* The strip of links to the source, above the legal footer. */
+.oss-bar { margin: 28px 0 0; padding-top: 22px; border-top: 1px solid var(--border);
+  color: var(--muted-fg); font-size: 15px;
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: 8px 16px; text-align: left; }
+.oss-bar .marks { display: flex; align-items: center; gap: 2px; margin-left: -10px; }
+.oss-bar .marks a { display: inline-flex; align-items: center; justify-content: center;
+  width: 44px; height: 44px; border-radius: 8px; color: var(--muted-fg);
+  text-decoration: none; }
+.oss-bar .marks a:hover { color: var(--fg); background: var(--raised); }
+.oss-bar .marks svg { width: 21px; height: 21px; display: block; }
+.oss-bar nav { flex: 0 1 auto; max-width: 100%; display: flex; flex-wrap: wrap;
+  justify-content: flex-end; margin-right: -6px; }
+.oss-bar nav a { display: inline-flex; align-items: center; justify-content: center;
+  padding: 12px 6px; min-width: 44px; min-height: 44px; color: var(--muted-fg);
+  font-size: 15px; text-decoration: none; }
+.oss-bar nav a:hover { color: var(--fg); }
+@media (max-width: 700px) {
+  .oss-bar nav { justify-content: flex-start; margin-left: -6px; margin-right: 0; }
+}
+</style>
+</head>
+<body>
+<a class="skip-link" href="#content">Skip to content</a>
+
+<nav class="topnav" aria-label="Main">
+  <div class="topnav-inner">
+    <a class="topnav-brand" href="index.html"><svg width="30" height="30" viewBox="0 0 48 48" aria-hidden="true"><rect width="48" height="48" rx="10" fill="#FBC711"/><rect x="7" y="26" width="15" height="15" rx="3" fill="#ffffff"/><rect x="26" y="26" width="15" height="15" rx="3" fill="#111827"/><rect x="16.5" y="7" width="15" height="15" rx="3" fill="#111827"/></svg><span>Dockup</span></a>
+    <ul class="topnav-links">
+      <li><a href="#features">Features</a></li>
+      <li><a href="#install">Install</a></li>
+      <li><a href="#faq">Questions</a></li>
+    </ul>
+    <div id="all-apps"></div>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap hero-wrap">
+    <div class="hero-grid">
+    <div class="hero-copy">
+    <h1>Your home-lab stacks, one window, a proper login.</h1>
+    <p class="lede">Dockup is a self-hosted Docker&nbsp;Compose stack manager for home labs -
+    every stack, its logs and its terminal in one window, with security taken seriously
+    from the first line.</p>
+    <div class="cta-row">
+      <a class="btn" href="#install">Install in two minutes</a>
+    </div>
+    <ul class="tag-row" aria-label="At a glance">
+      <li class="tag tag-indigo">2FA login</li>
+      <li class="tag tag-green">Daily backups</li>
+      <li class="tag tag-amber">No terminal needed</li>
+    </ul>
+    <p class="note">! Built for home labs on your own network - not hardened for public VPS hosting (yet).</p>
+    </div>
+
+    <figure class="shot" aria-label="Stylised view of the Dockup dashboard">
+    <svg viewBox="0 0 960 470" aria-hidden="true">
+      <rect width="960" height="470" rx="22" fill="#1b1d29"/>
+      <rect x="0" y="0" width="960" height="54" rx="22" fill="#282b34"/>
+      <rect x="0" y="30" width="960" height="24" fill="#282b34"/>
+      <rect x="24" y="16" width="22" height="22" rx="5" fill="#FBC711"/>
+      <text x="58" y="33" fill="#fafafa" font-family="system-ui" font-size="16" font-weight="700">Dockup</text>
+
+      <rect x="0" y="54" width="220" height="416" fill="#1c1e26"/>
+      <rect x="20" y="78" width="180" height="36" rx="10" fill="#FBC711"/>
+      <text x="42" y="101" fill="#645007" font-family="system-ui" font-size="14" font-weight="700">+ New stack</text>
+      <g font-family="system-ui" font-size="14" fill="#d6d8e0">
+        <circle cx="36" cy="150" r="5" fill="#4bae4f"/><text x="52" y="155">jellyfin</text>
+        <circle cx="36" cy="186" r="5" fill="#4bae4f"/><text x="52" y="191">homeassistant</text>
+        <circle cx="36" cy="222" r="5" fill="#f34236"/><text x="52" y="227">pihole</text>
+        <circle cx="36" cy="258" r="5" fill="#4bae4f"/><text x="52" y="263">vaultwarden</text>
+      </g>
+      <g font-family="system-ui" font-size="15">
+        <rect x="248" y="86" width="330" height="120" rx="16" fill="#232637"/>
+        <circle cx="278" cy="122" r="6" fill="#4bae4f"/>
+        <text x="296" y="128" fill="#fafafa" font-weight="700">jellyfin</text>
+        <rect x="272" y="146" width="92" height="24" rx="12" fill="#102611"/>
+        <text x="284" y="163" fill="#4bae4f" font-size="12">&#10003; running</text>
+        <rect x="602" y="86" width="330" height="120" rx="16" fill="#232637"/>
+        <circle cx="632" cy="122" r="6" fill="#f34236"/>
+        <text x="650" y="128" fill="#fafafa" font-weight="700">pihole</text>
+        <rect x="626" y="146" width="92" height="24" rx="12" fill="#350f0c"/>
+        <text x="640" y="163" fill="#f34236" font-size="12">stopped</text>
+      </g>
+      <rect x="248" y="230" width="684" height="216" rx="16" fill="var(--field)"/>
+      <g font-family="ui-monospace, monospace" font-size="13">
+        <text x="272" y="262" fill="#d6d8e0">web-1 | "GET /library HTTP/1.1" 200</text>
+        <text x="272" y="288" fill="#d6d8e0">web-1 | "GET /stream/4 HTTP/1.1" 200</text>
+        <text x="272" y="314" fill="#f0c674">db-1  | WARN: slow query took 1512ms</text>
+        <text x="272" y="340" fill="#ff7b72" font-weight="700">db-1  | ERROR: connection refused</text>
+        <text x="272" y="366" fill="#d6d8e0">db-1  | recovered, retrying…</text>
+        <text x="272" y="392" fill="#d6d8e0">web-1 | "GET /library HTTP/1.1" 200</text>
+      </g>
+    </svg>
+    </figure>
+    </div>
+  </div>
+</header>
+
+<main class="wrap" id="content">
+
+  <h2 class="visually-hidden" id="features">Features</h2>
+  <div class="highlight-grid">
+    <div class="panel highlight">
+      <svg class="ico accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9 12.5l1.8 1.8L15 10"/></svg>
+      <h3>Dockup is one of your stacks</h3>
+      <p>It sits in the stacks folder with everything it manages, so it shows up in its own list like any other container. Open it, read its compose file, press Update. No special case, no terminal.</p>
+    </div>
+    <div class="panel highlight">
+      <svg class="ico accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="7" height="7" rx="1.5"/><rect x="14" y="11" width="7" height="7" rx="1.5"/><rect x="8.5" y="3" width="7" height="7" rx="1.5"/></svg>
+      <h3>Everything in one window</h3>
+      <p>Every stack, its logs, its editor and its terminal on a single page. No hunting through tabs.</p>
+    </div>
+  </div>
+
+  <div class="band thirds">
+    <div class="panel">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+      <h3>A login that means it</h3>
+      <p>Server-side sessions, rate-limited sign-in, optional 2FA, encrypted settings. One secret to set, ever.</p>
+    </div>
+    <div class="panel">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0l-4-4m4 4l4-4"/><path d="M5 17v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2"/></svg>
+      <h3>Adopts what you run today</h3>
+      <p>Dockup scans your system and pulls existing compose projects and plain containers under management - nothing gets restarted.</p>
+    </div>
+    <div class="panel">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 17l6-6M14 4l-2.5 2.5a4 4 0 0 0 5.5 5.5L19.5 9.5A4 4 0 0 1 14 4zM4 17l3 3"/></svg>
+      <h3>Errors you can't miss</h3>
+      <p>Live log streaming with errors in red, a persistent activity log, and optional email alerts when something breaks.</p>
+    </div>
+  </div>
+  <div class="band pair-even">
+    <div class="panel">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 8v4l2.5 2.5"/><circle cx="12" cy="12" r="9"/></svg>
+      <h3>Backups that restore</h3>
+      <p>Daily automatic backups, one-click restore that's itself reversible, and a download-everything zip. No lock-in, ever.</p>
+    </div>
+    <div class="panel">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 7h14M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m2 0l-.8 12a2 2 0 0 1-2 1.9H9.8a2 2 0 0 1-2-1.9L7 7"/></svg>
+      <h3>Prune with confidence</h3>
+      <p>Clean unused images, containers, networks and build cache one-by-one or together. Volumes always show exactly what goes first.</p>
+    </div>
+  </div>
+  <div class="band thirds">
+    <div class="panel">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2.5"/><path d="M9.5 12a2.7 2.7 0 0 1 4.5-2M14.5 12a2.7 2.7 0 0 1-4.5 2"/></svg>
+      <h3>Redeploy a stuck container</h3>
+      <p>Recreates a stack from its compose file and whatever image's already pulled - fixes a wedged container without a full re-pull.</p>
+    </div>
+    <div class="panel">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 7V5a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v2M3 7h18l-1 12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2L3 7z"/></svg>
+      <h3>Archive, don't just delete</h3>
+      <p>A stack with nothing running can be archived - config kept, out of the way - or deleted for good along with every image it used.</p>
+    </div>
+    <div class="panel">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 5h5v5M19 5l-8 8M8 5H6a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2"/></svg>
+      <h3>One click to the real thing</h3>
+      <p>Open a stack's actual web UI in a new tab - its Tailscale Serve address if set up, otherwise whatever address got you to Dockup.</p>
+    </div>
+  </div>
+
+  <h2 id="install">Install</h2>
+  <div class="two">
+    <pre><code><span class="c"># paste straight into Dockge, Portainer, or any compose tool - change</span>
+<span class="c"># the SECRET_KEY line below to your own random string, then deploy</span>
+services:
+  dockup:
+    image: ghcr.io/gh-lm/dockup:latest
+    container_name: dockup
+    restart: unless-stopped
+    cap_drop: [ALL]
+    cap_add: [CHOWN, SETUID, SETGID, DAC_OVERRIDE]
+    security_opt: [no-new-privileges:true]
+    ports:
+      - "127.0.0.1:4000:5001"
+    environment:
+      SECRET_KEY: change-this-to-your-own-long-random-string
+      TZ: Europe/London
+      <span class="c"># real host path of the data/ folder above - only matters for</span>
+      <span class="c"># per-stack backups; skip if you don't use that feature</span>
+      DOCKUP_DATA_HOST_PATH: /opt/dockup/data
+    volumes:
+      - ./data:/app/data
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /opt/stacks:/opt/stacks</code></pre>
+    <div class="panel">
+      <h3>Then</h3>
+      <p style="color:var(--muted-fg);margin:0">Open <strong style="color:var(--fg)">http://your-server:4000</strong>,
+      create the admin account, and adopt what's already running. Updating later is a plain
+      <code>docker compose pull &amp;&amp; docker compose up -d</code>, or Dockup's own card in
+      its stack list. Prefer a terminal, or the full file with its comments? The
+      <a href="compose.yaml">real compose.yaml</a> and the runbook have both.</p>
+    </div>
+  </div>
+
+  <h3>Optional: the dockup-companion</h3>
+  <p>Adds host OS update checks and per-stack
+  <strong style="color:var(--fg)">Tailscale Serve</strong> toggles - the only two things Dockup can't
+  do through the Docker socket alone. It's the sole part of Dockup that needs root on the actual
+  server rather than just Docker access, which is why it's a separate step you opt into, not
+  something bundled in by default. Skip it entirely and everything else works exactly the same.</p>
+  <pre><code><span class="c"># one click in Settings does the whole thing - installs and reconnects</span>
+<span class="c"># or, manually (its files live in the repo, not the image):</span>
+cid=$(docker create ghcr.io/gh-lm/dockup:latest)
+docker cp "$cid:/app/companion" /tmp/dockup-companion &amp;&amp; docker rm "$cid"
+cd /tmp/dockup-src/companion &amp;&amp; sudo sh install.sh</code></pre>
+
+  <h2 id="faq">Common questions</h2>
+  <div class="band pair-even">
+    <div class="panel">
+      <h3>Does updating Dockup mean rebuilding it?</h3>
+      <p>No. Dockup ships as a pre-built image, and it sits in the stacks folder with everything it manages, so it appears in its own list. Open it and press Update, exactly as you would for any other stack. No git, no local build, ever.</p>
+    </div>
+    <div class="panel">
+      <h3>Does Dockup need root on my server?</h3>
+      <p>Only for two things Docker access alone can't reach - host OS update checks and Tailscale Serve - and only if you opt into the small companion service. Everything else runs through the same Docker socket any container manager needs.</p>
+    </div>
+  </div>
+  <div class="band pair-13">
+    <div class="panel">
+      <h3>What happens to my stacks if I stop using Dockup?</h3>
+      <p>Nothing. Every stack stays a plain folder with a real compose file, unchanged by Dockup managing it - <code>docker compose</code> or any other tool works on it at any time.</p>
+    </div>
+    <div class="panel">
+      <h3>Can I run Dockup on a public VPS?</h3>
+      <p>Not yet recommended. Dockup is built and hardened for a machine on your own network, reached over Tailscale or your LAN - it hasn't been hardened for direct internet exposure.</p>
+    </div>
+  </div>
+  <div class="band thirds">
+    <div class="panel">
+      <h3>Do I have to install the companion?</h3>
+      <p>No. It is entirely optional and separate. Without it you lose only host OS update checks and the per-stack Tailscale Serve switches; everything else works.</p>
+    </div>
+    <div class="panel">
+      <h3>What does it back up?</h3>
+      <p>Its own settings, registry details and history, every day, kept for as long as you choose. A stack's own data is a separate, deliberate job you ask for per stack.</p>
+    </div>
+    <div class="panel">
+      <h3>Can it adopt what I already run?</h3>
+      <p>Yes. Dockup looks over your machine for compose projects and loose containers it isn't managing and offers to take them on. Nothing is restarted to do it.</p>
+    </div>
+  </div>
+  <div class="band pair-16">
+    <div class="panel">
+      <h3>What happens when Dockup updates itself?</h3>
+      <p>The same as any other stack: open it, press Update. The page goes quiet for a few seconds while its container is replaced, then comes back on the new version.</p>
+    </div>
+    <div class="panel">
+      <h3>Where do passwords and keys live?</h3>
+      <p>In Dockup's own settings page, stored encrypted. The only exception is the key that signs your login, which has to exist before there is a page to sign in to, so it sits in the compose file or a <code>.env</code> beside it.</p>
+    </div>
+  </div>
+
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-inner">
+
+    <div class="foot-brand">
+      <a class="foot-lockup" href="index.html"><svg viewBox="0 0 48 48" width="26" height="26" aria-hidden="true"><rect width="48" height="48" rx="10" fill="#FBC711"/><rect x="7" y="26" width="15" height="15" rx="3" fill="#ffffff"/><rect x="26" y="26" width="15" height="15" rx="3" fill="#111827"/><rect x="16.5" y="7" width="15" height="15" rx="3" fill="#111827"/></svg>Dockup</a>
+      <p class="foot-tagline">A self-hosted Docker Compose stack manager for home labs - every stack,
+      its logs and its terminal in one window, with a real login and two-factor. Made by
+      <a href="https://lightmorphic.com">Lightmorphic</a> and given away under the GPL.</p>
+      <p class="foot-note">No cookies and no tracking. The only thing loaded from anywhere else is
+      the Lightmorphic app launcher in the menu bar.</p>
+    </div>
+
+    <nav class="foot-nav foot-mid" aria-label="The project">
+      <p class="foot-nav-title">The project</p>
+      <ul class="foot-nav-links">
+        <li><a href="whats-new.html">What's new</a></li>
+        <li><a href="security.html">Security</a></li>
+        <li><a href="licence.html">Licence</a></li>
+      </ul>
+    </nav>
+
+    <nav class="foot-nav foot-end" aria-label="Pages">
+      <p class="foot-nav-title">Pages</p>
+      <ul class="foot-nav-links">
+        <li><a href="#features">Features</a></li>
+        <li><a href="#install">Install</a></li>
+        <li><a href="#faq">Questions</a></li>
+        <li><a href="documentation.html">Documentation</a></li>
+        <li><a href="runbook.html">Runbook</a></li>
+      </ul>
+    </nav>
+
+  </div>
+</footer>
+
+<div class="wrap">
+<div class="oss-bar">
+  <div class="marks">
+    <a href="https://github.com/gh-lm/dockup" target="_blank" rel="noopener noreferrer"
+       aria-label="Dockup on GitHub (opens in a new tab)">
+      <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+    </a>
+    <a href="https://opensource.org" target="_blank" rel="noopener noreferrer"
+       aria-label="Open Source Initiative (opens in a new tab)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="5" r="2.6"/>
+        <circle cx="5.2" cy="17" r="2.6"/>
+        <circle cx="18.8" cy="17" r="2.6"/>
+        <path d="M10.7 7.3 6.5 14.7M13.3 7.3l4.2 7.4M7.8 17h8.4"/>
+      </svg>
+    </a>
+  </div>
+  <nav aria-label="Source code">
+    <a href="https://github.com/gh-lm/dockup" target="_blank" rel="noopener noreferrer" aria-label="Repository on GitHub (opens in a new tab)">Repository</a>
+    <a href="https://github.com/gh-lm/dockup/blob/main/README.md" target="_blank" rel="noopener noreferrer" aria-label="Documentation on GitHub (opens in a new tab)">Documentation</a>
+    <a href="https://github.com/gh-lm/dockup/security/policy" target="_blank" rel="noopener noreferrer" aria-label="Security on GitHub (opens in a new tab)">Security</a>
+    <a href="https://github.com/gh-lm/dockup/blob/main/LICENSE" target="_blank" rel="noopener noreferrer" aria-label="Licence on GitHub (opens in a new tab)">Licence</a>
+    <a href="https://github.com/gh-lm/dockup/blob/main/CHANGELOG.md" target="_blank" rel="noopener noreferrer" aria-label="Changelog on GitHub (opens in a new tab)">Changelog</a>
+    <a href="https://github.com/gh-lm/dockup/issues" target="_blank" rel="noopener noreferrer" aria-label="Issues on GitHub (opens in a new tab)">Issues</a>
+    <a href="https://github.com/gh-lm/dockup/releases" target="_blank" rel="noopener noreferrer" aria-label="Releases on GitHub (opens in a new tab)">Releases</a>
+  </nav>
+</div>
+</div>
+
+<div class="legal">
+  <div class="wrap legal-inner">
+    <p class="legal-text">
+      &copy; Lightmorphic Ltd. Registered in England and Wales, company number 17423646.<br>
+      Registered office: 82A James Carter Road, Mildenhall, IP28 7DE.<br>
+      Page last updated: <time datetime="2026-10-05">5 October 2026</time>.
+    </p>
+    <nav class="legal-links" aria-label="Legal">
+      <a href="privacy.html">Privacy</a>
+      <a href="cookies.html">Cookies</a>
+      <a href="terms.html">Terms</a>
+      <a href="accessibility.html">Accessibility</a>
+      <a href="complaints.html">Complaints</a>
+    </nav>
+  </div>
+</div>
+
+<script src="https://apps.lightmorphic.com/launcher.js" defer></script>
+</body>
+</html>

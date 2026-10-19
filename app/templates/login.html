@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Sign in - Dockup</title>
+<link rel="icon" href="/static/icons/dockup.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body class="auth-page">
+<main class="auth-wrap">
+
+  <div class="panel auth-panel">
+    <div class="auth-logo">
+      <svg width="44" height="44" viewBox="0 0 48 48" aria-hidden="true"><rect x="6" y="26" width="16" height="16" rx="3" fill="var(--accent)"/><rect x="26" y="26" width="16" height="16" rx="3" fill="var(--brand-navy)" class="logo-navy"/><rect x="16" y="6" width="16" height="16" rx="3" fill="var(--brand-navy)" class="logo-navy"/></svg>
+      <h1>Sign in</h1>
+    </div>
+    {% if show_totp %}
+    <p class="auth-lead">Your authenticator app has a six-digit code for Dockup. It changes every
+    thirty seconds.</p>
+    {% if error %}<p class="alert alert-danger" role="alert">{{ error }}</p>{% endif %}
+    <form method="post" class="form-grid" autocomplete="off">
+      <div class="field">
+        <label for="code">Six-digit code from your authenticator app</label>
+        <input id="code" name="code" inputmode="numeric" pattern="[0-9 ]*" autocomplete="one-time-code" required autofocus>
+      </div>
+      <button class="btn btn-primary btn-block" type="submit">Verify</button>
+    </form>
+    {% else %}
+    <p class="auth-lead">To Dockup on this machine. Nothing here is shared with anyone else.</p>
+    {% if error %}<p class="alert alert-danger" role="alert">{{ error }}</p>{% endif %}
+    <form method="post" class="form-grid">
+      <div class="field">
+        <label for="username">Username</label>
+        <input id="username" name="username" autocomplete="username" required autofocus>
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <div class="field-with-btn">
+          <input id="password" name="password" type="password" autocomplete="current-password" required>
+          <button class="icon-btn" type="button" id="showPw" data-tip="Show password"
+            aria-label="Show the password" aria-pressed="false">
+            <svg viewBox="0 0 24 24"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z" stroke="currentColor" stroke-width="2" fill="none"/><circle cx="12" cy="12" r="2.75" stroke="currentColor" stroke-width="2" fill="none"/></svg>
+          </button>
+        </div>
+      </div>
+      <button class="btn btn-primary btn-block" type="submit">Sign in</button>
+    </form>
+    {% endif %}
+  </div>
+
+  <aside class="panel auth-side">
+    <h2>Dockup</h2>
+    <p>Every Docker Compose stack on this machine, in one window.</p>
+    <div class="auth-tiles">
+      <div class="card"><b>Every stack at a glance</b>
+        <span>Running or stopped, and which have a newer image waiting.</span></div>
+      <div class="card"><b>Logs and a terminal</b>
+        <span>Live output and a shell inside any container, without leaving the page.</span></div>
+      <div class="card"><b>Backed up daily</b>
+        <span>Dockup's own settings and history are copied every day and kept for as long as you ask.</span></div>
+    </div>
+  </aside>
+
+</main>
+<script src="/static/js/auth.js"></script>
+</body>
+</html>

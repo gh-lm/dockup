@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Security - Dockup</title>
+<meta name="description" content="How to report a security problem in Dockup, and what is already in place.">
+<link rel="canonical" href="https://dockup.lightmorphic.com/security.html">
+<link rel="icon" href="dockup.svg" type="image/svg+xml">
+<meta property="og:title" content="Security - Dockup">
+<meta property="og:description" content="How to report a security problem in Dockup, and what is already in place.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://dockup.lightmorphic.com/security.html">
+<meta property="og:image" content="https://dockup.lightmorphic.com/social-card.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Security - Dockup">
+<meta name="twitter:description" content="How to report a security problem in Dockup, and what is already in place.">
+<meta name="twitter:image" content="https://dockup.lightmorphic.com/social-card.png">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://apps.lightmorphic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://apps.lightmorphic.com; font-src 'self'; connect-src 'self' https://apps.lightmorphic.com; form-action 'none'; base-uri 'none'; object-src 'none'; upgrade-insecure-requests">
+<link rel="stylesheet" href="legal.css">
+</head>
+<body>
+<nav class="topnav" aria-label="Main">
+  <div class="topnav-inner">
+    <a class="topnav-brand" href="index.html"><svg width="30" height="30" viewBox="0 0 48 48" aria-hidden="true"><rect width="48" height="48" rx="10" fill="#FBC711"/><rect x="7" y="26" width="15" height="15" rx="3" fill="#ffffff"/><rect x="26" y="26" width="15" height="15" rx="3" fill="#fff"/><rect x="16.5" y="7" width="15" height="15" rx="3" fill="#fff"/></svg><span>Dockup</span></a>
+    <ul class="topnav-links">
+      <li><a href="index.html#features">Features</a></li>
+      <li><a href="index.html#install">Install</a></li>
+      <li><a href="index.html#faq">Questions</a></li>
+    </ul>
+    <div id="all-apps"></div>
+  </div>
+</nav>
+<header class="page-head">
+  <div class="wrap">
+    <h1>Security</h1>
+    <p class="updated">How to report a problem, and what Dockup already does to protect itself.</p>
+  </div>
+</header>
+<main class="wrap">
+
+  <div class="doc-layout">
+    <nav class="doc-index" aria-label="Contents">
+      <h2>Contents</h2>
+      <ul>
+        <li><a href="#supported-versions">Supported versions</a></li>
+        <li><a href="#reporting-a-vulnerability">Reporting a vulnerability</a></li>
+        <li><a href="#what-to-expect">What to expect</a></li>
+        <li><a href="#scope">Scope</a></li>
+        <li><a href="#what-s-already-in-place">What&#x27;s already in place</a></li>
+      </ul>
+    </nav>
+    <div class="doc-body">
+<section class="panel doc">
+<p>Dockup is built for home labs on a private network, not for public internet exposure. It holds the Docker socket, which is effectively root on the machine it runs on: treat access to Dockup itself as equivalent to root access to that machine.</p>
+<p>It is a single-maintainer project, not a company or a team with a dedicated security function. This page sets realistic expectations rather than promising something that is not true.</p>
+</section>
+<section class="panel doc" id="supported-versions">
+<h2>Supported versions</h2>
+<p>Only the latest release is supported, which is the <code>latest</code> tag and the most recent tagged commit. There is no long-term-support branch and no backporting. If a vulnerability is found, the fix lands in the next release and you are expected to update to it.</p>
+<div class="table-scroll"><table>
+<thead><tr><th>Version</th><th>Supported</th></tr></thead>
+<tbody>
+<tr><td>1.2.x</td><td>Supported</td></tr>
+<tr><td>1.1.x and earlier</td><td>Not supported</td></tr>
+</tbody></table></div>
+</section>
+<section class="panel doc" id="reporting-a-vulnerability">
+<h2>Reporting a vulnerability</h2>
+<p><strong>Please do not put the details of a security vulnerability in a public issue.</strong> A public report discloses the problem to everyone, including anyone running an unpatched copy, before a fix exists.</p>
+<p>Use GitHub&#x27;s private vulnerability reporting on this repository, under <strong>Security</strong>, then <strong>Report a vulnerability</strong>. It goes straight to the maintainer and nobody else can see it.</p>
+<p>If you would rather not use GitHub, write to &lt;security@lightmorphic.com&gt; with &quot;Dockup security&quot; in the subject line and say only that you have a security issue to report. Leave the details out of that first message, and a private channel will be arranged for the rest.</p>
+</section>
+<section class="panel doc" id="what-to-expect">
+<h2>What to expect</h2>
+<p>This is maintained in whatever time is available outside other commitments, not against a service level agreement. Best effort, not guaranteed:</p>
+<ul><li>
+Acknowledgement of a report: a few days is the aim
+</li><li>
+A fix or a mitigation: depends on severity and complexity. It could be
+ same-day for something simple and serious, or longer for something subtle
+</li></ul>
+</section>
+<section class="panel doc" id="scope">
+<h2>Scope</h2>
+<p>This policy covers the Dockup application itself: the backend, the front end, the Dockerfile and the optional companion. It does not cover:</p>
+<ul><li>
+Vulnerabilities in dependencies. Report those to the dependency&#x27;s own
+ maintainers
+</li><li>
+Your own deployment: reverse proxy configuration, network exposure, the
+ Docker daemon and the host operating system are outside this project&#x27;s
+ control
+</li></ul>
+</section>
+<section class="panel doc" id="what-s-already-in-place">
+<h2>What&#x27;s already in place</h2>
+<ul><li>
+Signed session cookies, rate-limited login, optional TOTP 2FA. Signing out
+ clears the cookie in the browser; a stolen cookie stays valid until it
+ expires (seven days), or until Dockup&#x27;s <code>SECRET_KEY</code> changes
+</li><li>
+Passwords hashed with Werkzeug&#x27;s scrypt-based hasher, never stored in plain text
+</li><li>
+All other secrets (SMTP credentials, etc.) encrypted at rest with a key
+ derived from <code>SECRET_KEY</code>, and never echoed back to the browser
+</li><li>
+Private-registry tokens (Settings -&gt; Private registries) are encrypted
+ at rest in the database and never returned to the browser. Docker only
+ reads credentials from a config.json, so Dockup writes the decrypted
+ tokens to one at <code>/tmp/dockup-docker-config/config.json</code> inside its own
+ container - directory mode 700, file mode 600, rebuilt from the
+ database at every start, and outside the data volume so it is never
+ included in a backup or export. Use a read-only (pull) token
+</li><li>
+CSRF token required on every state-changing request once signed in. The
+ sign-in and first-run setup forms are protected by the session cookie&#x27;s
+ <code>SameSite</code> setting instead
+</li><li>
+Parameterised SQL throughout - no string-built queries
+</li><li>
+A Content-Security-Policy that allows scripts and styles only from Dockup
+ itself (plus the one launcher script below) and no inline scripts, with
+ <code>X-Frame-Options: DENY</code>, <code>X-Content-Type-Options: nosniff</code> and a
+ restrictive <code>Permissions-Policy</code>
+</li><li>
+Backup files are readable only by their owner, and a restore never touches
+ Dockup&#x27;s own folder
+</li><li>
+No analytics, no CDNs, no cookies beyond the session cookie needed to
+ be logged in at all
+</li><li>
+One external request by design: the Lightmorphic app launcher in the
+ top bar loads a script and icons from <code>apps.lightmorphic.com</code>, which
+ the Content-Security-Policy names explicitly. That script runs with
+ the same rights as the rest of the page, so it is a real trust
+ decision - remove those two entries from the policy in
+ <code>app/__init__.py</code>, and the <code>all-apps</code> div and script tag from
+ <code>app/templates/app.html</code>, to drop it
+</li></ul>
+</section>
+    </div>
+  </div>
+
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-inner">
+
+    <div class="foot-brand">
+      <a class="foot-lockup" href="index.html"><svg viewBox="0 0 48 48" width="26" height="26" aria-hidden="true"><rect width="48" height="48" rx="10" fill="#FBC711"/><rect x="7" y="26" width="15" height="15" rx="3" fill="#ffffff"/><rect x="26" y="26" width="15" height="15" rx="3" fill="#fff"/><rect x="16.5" y="7" width="15" height="15" rx="3" fill="#fff"/></svg>Dockup</a>
+      <p class="foot-tagline">A self-hosted Docker Compose stack manager for home labs - every stack,
+      its logs and its terminal in one window, with a real login and two-factor. Made by
+      <a href="https://lightmorphic.com">Lightmorphic</a> and given away under the GPL.</p>
+      <p class="foot-note">No cookies and no tracking. The only thing loaded from anywhere else is
+      the Lightmorphic app launcher in the menu bar.</p>
+    </div>
+
+    <nav class="foot-nav foot-mid" aria-label="The project">
+      <p class="foot-nav-title">The project</p>
+      <ul class="foot-nav-links">
+        <li><a href="whats-new.html">What's new</a></li>
+        <li><a href="security.html">Security</a></li>
+        <li><a href="licence.html">Licence</a></li>
+      </ul>
+    </nav>
+
+    <nav class="foot-nav foot-end" aria-label="Pages">
+      <p class="foot-nav-title">Pages</p>
+      <ul class="foot-nav-links">
+        <li><a href="index.html#features">Features</a></li>
+        <li><a href="index.html#install">Install</a></li>
+        <li><a href="index.html#faq">Questions</a></li>
+        <li><a href="documentation.html">Documentation</a></li>
+        <li><a href="runbook.html">Runbook</a></li>
+      </ul>
+    </nav>
+
+  </div>
+</footer>
+
+<div class="wrap">
+<div class="oss-bar">
+  <div class="marks">
+    <a href="https://github.com/gh-lm/dockup" target="_blank" rel="noopener noreferrer"
+       aria-label="Dockup on GitHub (opens in a new tab)">
+      <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+    </a>
+    <a href="https://opensource.org" target="_blank" rel="noopener noreferrer"
+       aria-label="Open Source Initiative (opens in a new tab)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="5" r="2.6"/>
+        <circle cx="5.2" cy="17" r="2.6"/>
+        <circle cx="18.8" cy="17" r="2.6"/>
+        <path d="M10.7 7.3 6.5 14.7M13.3 7.3l4.2 7.4M7.8 17h8.4"/>
+      </svg>
+    </a>
+  </div>
+  <nav aria-label="Source code">
+    <a href="https://github.com/gh-lm/dockup" target="_blank" rel="noopener noreferrer" aria-label="Repository on GitHub (opens in a new tab)">Repository</a>
+    <a href="https://github.com/gh-lm/dockup/blob/main/README.md" target="_blank" rel="noopener noreferrer" aria-label="Documentation on GitHub (opens in a new tab)">Documentation</a>
+    <a href="https://github.com/gh-lm/dockup/security/policy" target="_blank" rel="noopener noreferrer" aria-label="Security on GitHub (opens in a new tab)">Security</a>
+    <a href="https://github.com/gh-lm/dockup/blob/main/LICENSE" target="_blank" rel="noopener noreferrer" aria-label="Licence on GitHub (opens in a new tab)">Licence</a>
+    <a href="https://github.com/gh-lm/dockup/blob/main/CHANGELOG.md" target="_blank" rel="noopener noreferrer" aria-label="Changelog on GitHub (opens in a new tab)">Changelog</a>
+    <a href="https://github.com/gh-lm/dockup/issues" target="_blank" rel="noopener noreferrer" aria-label="Issues on GitHub (opens in a new tab)">Issues</a>
+    <a href="https://github.com/gh-lm/dockup/releases" target="_blank" rel="noopener noreferrer" aria-label="Releases on GitHub (opens in a new tab)">Releases</a>
+  </nav>
+</div>
+</div>
+
+<div class="legal">
+  <div class="wrap legal-inner">
+    <p class="legal-text">
+      &copy; Lightmorphic Ltd. Registered in England and Wales, company number 17423646.<br>
+      Registered office: 82A James Carter Road, Mildenhall, IP28 7DE.<br>
+      Page last updated: <time datetime="2026-10-19">19 October 2026</time>.
+    </p>
+    <nav class="legal-links" aria-label="Legal">
+      <a href="privacy.html">Privacy</a>
+      <a href="cookies.html">Cookies</a>
+      <a href="terms.html">Terms</a>
+      <a href="accessibility.html">Accessibility</a>
+      <a href="complaints.html">Complaints</a>
+    </nav>
+  </div>
+</div>
+
+<script src="https://apps.lightmorphic.com/launcher.js" defer></script>
+</body>
+</html>

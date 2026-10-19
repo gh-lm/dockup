@@ -1,0 +1,12 @@
+{
+  "name": "Dockup",
+  "short_name": "Dockup",
+  "description": "Home-lab compose stack manager",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1c1e26",
+  "theme_color": "#1c1e26",
+  "icons": [
+    { "src": "/static/icons/dockup.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

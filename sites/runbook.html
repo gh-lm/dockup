@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Runbook - Dockup</title>
+<meta name="description" content="Install, restore, rollback, and what to do when something is wrong.">
+<link rel="canonical" href="https://dockup.lightmorphic.com/runbook.html">
+<link rel="icon" href="dockup.svg" type="image/svg+xml">
+<meta property="og:title" content="Runbook - Dockup">
+<meta property="og:description" content="Install, restore, rollback, and what to do when something is wrong.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://dockup.lightmorphic.com/runbook.html">
+<meta property="og:image" content="https://dockup.lightmorphic.com/social-card.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Runbook - Dockup">
+<meta name="twitter:description" content="Install, restore, rollback, and what to do when something is wrong.">
+<meta name="twitter:image" content="https://dockup.lightmorphic.com/social-card.png">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://apps.lightmorphic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://apps.lightmorphic.com; font-src 'self'; connect-src 'self' https://apps.lightmorphic.com; form-action 'none'; base-uri 'none'; object-src 'none'; upgrade-insecure-requests">
+<link rel="stylesheet" href="legal.css">
+</head>
+<body>
+<nav class="topnav" aria-label="Main">
+  <div class="topnav-inner">
+    <a class="topnav-brand" href="index.html"><svg width="30" height="30" viewBox="0 0 48 48" aria-hidden="true"><rect width="48" height="48" rx="10" fill="#FBC711"/><rect x="7" y="26" width="15" height="15" rx="3" fill="#ffffff"/><rect x="26" y="26" width="15" height="15" rx="3" fill="#fff"/><rect x="16.5" y="7" width="15" height="15" rx="3" fill="#fff"/></svg><span>Dockup</span></a>
+    <ul class="topnav-links">
+      <li><a href="index.html#features">Features</a></li>
+      <li><a href="index.html#install">Install</a></li>
+      <li><a href="index.html#faq">Questions</a></li>
+    </ul>
+    <div id="all-apps"></div>
+  </div>
+</nav>
+<header class="page-head">
+  <div class="wrap">
+    <h1>Runbook</h1>
+    <p class="updated">The day-to-day jobs in plain language, and what to do when something breaks.</p>
+  </div>
+</header>
+<main class="wrap">
+
+  <div class="doc-layout">
+    <nav class="doc-index" aria-label="Contents">
+      <h2>Contents</h2>
+      <ul>
+        <li><a href="#install-docker-host">Install (Docker host)</a></li>
+        <li><a href="#optional-the-dockup-companion-tailscale-serve-os-updates">Optional: the dockup-companion (Tailscale Serve + OS updates)</a></li>
+        <li><a href="#first-steps-after-install">First steps after install</a></li>
+        <li><a href="#daily-use">Daily use</a></li>
+        <li><a href="#restore-a-backup">Restore a backup</a></li>
+        <li><a href="#a-file-keeps-being-left-out-of-the-backup">A file keeps being left out of the backup</a></li>
+        <li><a href="#back-up-one-stack-including-its-real-data">Back up one stack, including its real data</a></li>
+        <li><a href="#roll-back-dockup-itself">Roll back Dockup itself</a></li>
+        <li><a href="#restart-update-dockup">Restart / update Dockup</a></li>
+        <li><a href="#pull-from-a-private-registry">Pull from a private registry</a></li>
+        <li><a href="#per-machine-settings-compose-override-yaml">Per-machine settings: compose.override.yaml</a></li>
+        <li><a href="#dumps-before-a-backup">Dumps before a backup</a></li>
+        <li><a href="#if-dockup-is-down">If Dockup is down</a></li>
+        <li><a href="#a-stack-says-it-s-running-but-nothing-can-reach-it">A stack says it&#x27;s running but nothing can reach it</a></li>
+        <li><a href="#tailscale-serve-gets-no-certificate-for-a-port">Tailscale Serve gets no certificate for a port</a></li>
+        <li><a href="#when-a-stack-can-t-be-checked-for-an-update">When a stack can&#x27;t be checked for an update</a></li>
+        <li><a href="#uptime-check">Uptime check</a></li>
+        <li><a href="#full-export-moving-house">Full export / moving house</a></li>
+        <li><a href="#publishing-a-new-version">Publishing a new version</a></li>
+      </ul>
+    </nav>
+    <div class="doc-body">
+<section class="panel doc">
+<p>Plain-language guide for running Dockup. Everything here works from the UI or a couple of copy-paste commands - no deep terminal knowledge needed.</p>
+</section>
+<section class="panel doc" id="install-docker-host">
+<h2>Install (Docker host)</h2>
+<p>Dockup is a normal pre-built image (<code>ghcr.io/gh-lm/dockup</code>, built by GitHub for every release) - nothing to clone or build, just its compose file:</p>
+<pre><code>mkdir -p /opt/dockup /opt/stacks &amp;&amp; cd /opt/dockup
+curl -fsSL -o compose.yaml https://dockup.lightmorphic.com/compose.yaml
+echo &quot;SECRET_KEY=$(python3 -c &#x27;import secrets;print(secrets.token_urlsafe(48))&#x27;)&quot; &gt; .env
+docker compose up -d</code></pre>
+<p>Dockup runs as a non-root user with UID 1000 inside its container, matching the usual first-user account on a fresh Linux install. If your own user isn&#x27;t UID 1000 (check with <code>id -u</code>), the container still starts fine but can&#x27;t write to <code>data/</code> - fix it once:</p>
+<pre><code>sudo chown -R 1000:1000 /opt/dockup/data /opt/stacks</code></pre>
+<p>Open <code>http://&lt;server-ip&gt;:4000</code> and create the admin account. Keep a copy of the <code>.env</code> file&#x27;s SECRET_KEY somewhere safe (password manager). It encrypts your saved settings - lose it and saved passwords in Settings have to be re-entered.</p>
+</section>
+<section class="panel doc" id="optional-the-dockup-companion-tailscale-serve-os-updates">
+<h2>Optional: the dockup-companion (Tailscale Serve + OS updates)</h2>
+<p>Everything above is all Dockup needs to run. This second, separate step is only for two extra features - checking/applying host OS updates, and turning Tailscale Serve on/off per stack - and it&#x27;s the one part of Dockup that needs root on the actual server, not just Docker access. Skip it entirely if you don&#x27;t want those two features; everything else works the same either way.</p>
+<p><strong>One click</strong>: Settings → Host OS &amp; Tailscale → &quot;Install companion&quot;. This installs the systemd service on the host for you (a short-lived, one-time privileged action - nothing standing afterward beyond the service itself), then tells you the one remaining manual step below.</p>
+<p><strong>Manually</strong>, if you&#x27;d rather. The companion&#x27;s three files are inside the image, so taking them from there always gives you the version you are actually running:</p>
+<pre><code>mkdir -p /tmp/dockup-companion
+cid=$(docker create ghcr.io/gh-lm/dockup:latest)
+docker cp &quot;$cid:/app/companion&quot; /tmp/dockup-companion
+docker rm &quot;$cid&quot;
+cd /tmp/dockup-companion/companion &amp;&amp; sudo sh install.sh</code></pre>
+<p>Either way, finish by giving Dockup the companion socket in <code>compose.override.yaml</code> (see the per-machine settings section below):</p>
+<pre><code>services:
+  dockup:
+    volumes:
+      - /run/dockup-companion.sock:/run/dockup-companion.sock</code></pre>
+<p>and restart Dockup (<code>docker compose up -d</code>). Settings → Host OS &amp; Tailscale and each stack&#x27;s Tailscale tab go from &quot;not set up&quot; to working once that&#x27;s done.</p>
+<p>Also worth knowing: once the companion is installed, Dockup automatically pauses any Tailscale Serve rule that&#x27;s using a port a stack is about to bind to, and restores it right after - this is what prevents the classic &quot;address already in use&quot; failure when a stack you deleted and recreated tries to grab a port Tailscale Serve is still holding open. Without the companion, Dockup can&#x27;t do this for you and will just explain what happened and how to fix it by hand.</p>
+</section>
+<section class="panel doc" id="first-steps-after-install">
+<h2>First steps after install</h2>
+<ol><li>
+<strong>Settings → Email alerts</strong>: fill in SMTP and press *Send test email*.
+ Until this works, error alerts only show in Activity.
+</li><li>
+<strong>Settings → Account</strong>: consider switching on 2FA.
+</li><li>
+<strong>Dashboard</strong>: if you already had things running, an &quot;adopt&quot; panel
+ lists them - adopt what you want Dockup to manage.
+</li></ol>
+</section>
+<section class="panel doc" id="daily-use">
+<h2>Daily use</h2>
+<p>Everything is a button: start/stop/restart/update per stack, logs and terminal per stack, pruning under Maintenance, backups under Backups. Errors show in red in Activity, and email you if SMTP is set up.</p>
+</section>
+<section class="panel doc" id="restore-a-backup">
+<h2>Restore a backup</h2>
+<p>Backups run daily (hour and retention set in Settings) and cover the stacks folder plus Dockup&#x27;s own database.</p>
+<ul><li>
+<strong>From the UI</strong>: Backups → pick one → Restore (click twice). The
+ current files are kept at <code>data/pre-restore-stacks</code> first, so a restore
+ can itself be undone by copying that folder back.
+</li><li>
+Restored stacks aren&#x27;t restarted automatically - press play on each
+ when you&#x27;re ready.
+</li></ul>
+</section>
+<section class="panel doc" id="a-file-keeps-being-left-out-of-the-backup">
+<h2>A file keeps being left out of the backup</h2>
+<p>Activity says something like &quot;The backup left out 1 file(s) it couldn&#x27;t read&quot;, and names the file. The backup itself worked: everything except the named files is in the archive.</p>
+<p>Dockup runs as an ordinary user (UID 1000) inside its container, never as root, so a file owned by root with permissions that shut everyone else out can&#x27;t be read. The usual ones are leftovers such as <code>.env.before-move</code> and database files a container wrote as root.</p>
+<p>Fix it on the Docker host, either way round. Delete the leftover if you don&#x27;t need it:</p>
+<pre><code>sudo rm /opt/stacks/&lt;stack&gt;/.env.before-move</code></pre>
+<p>Or let Dockup read it:</p>
+<pre><code>sudo chown 1000:1000 /opt/stacks/&lt;stack&gt;/&lt;file&gt;</code></pre>
+<p>Then press <strong>Back up now</strong> in Backups. The warning stops as soon as the file can be read, and no alert email is ever sent for this - the backup succeeded, so it&#x27;s a warning, not an error.</p>
+</section>
+<section class="panel doc" id="back-up-one-stack-including-its-real-data">
+<h2>Back up one stack, including its real data</h2>
+<p>Open a stack → <strong>Backup</strong> tab → <strong>Back up now</strong>. Unlike the daily backup above (which only covers compose files), this also archives the stack&#x27;s actual data - bind-mounted folders and named volumes, read straight from wherever they already live. Restoring puts everything back to exactly the same place, nothing gets relocated.</p>
+<p>This needs Dockup to know its own real path on the host, since it asks Docker to start small helper containers that mount both the stack&#x27;s data and Dockup&#x27;s own backup folder side by side. If you installed Dockup somewhere other than <code>/opt/dockup</code>, set this in <code>.env</code>:</p>
+<pre><code>DOCKUP_DATA_HOST_PATH=/wherever/you/put/dockup/data</code></pre>
+<p>If it&#x27;s missing or wrong, per-stack backups fail with a clear error telling you to set it - the daily/global backup above doesn&#x27;t need it.</p>
+</section>
+<section class="panel doc" id="roll-back-dockup-itself">
+<h2>Roll back Dockup itself</h2>
+<p>Every release is published as its own image tag. To go back to a previous version, pin the tag in <code>compose.override.yaml</code>:</p>
+<pre><code>services:
+  dockup:
+    image: ghcr.io/gh-lm/dockup:1.1.0</code></pre>
+<p>then <code>docker compose up -d</code>. Remove the override and pull to move forward again. Your data (stacks, database, backups) is untouched by rollbacks - it lives in <code>/opt/stacks</code> and <code>/opt/dockup/data</code>, outside the image.</p>
+</section>
+<section class="panel doc" id="restart-update-dockup">
+<h2>Restart / update Dockup</h2>
+<p>Dockup is a container like any other, and it sits in the stacks folder alongside everything it manages, so it appears in its own list. Open it and press Update: it pulls the newer image and brings itself back, the same as any other stack. From a terminal it is the same two commands as anything else:</p>
+<pre><code>cd /opt/stacks/dockup
+docker compose pull &amp;&amp; docker compose up -d</code></pre>
+<p>There is one thing Dockup cannot do to itself. <code>compose up</code> replaces Dockup&#x27;s container, which kills the process running the command before it can start anything again. So that one step is handed to a short-lived helper container that is not the one being replaced - the same approach the companion installer already uses. That is why the page goes quiet for a few seconds and then comes back on its own: the container serving it has just been replaced.</p>
+<p>If Dockup&#x27;s folder is somewhere other than the stacks folder, its card says so and it cannot be updated from the screen. Move that folder into the stacks folder (keeping compose.yaml, .env and data together) and it behaves like every other stack.</p>
+</section>
+<section class="panel doc" id="pull-from-a-private-registry">
+<h2>Pull from a private registry</h2>
+<p>For images that need a login - your own Forgejo or GitLab registry, a private image repository. Nothing to edit on the server.</p>
+<ol><li>
+Create a token on the registry that can only read packages (pull).
+</li><li>
+In Dockup: Settings -&gt; Private registries. Enter the registry
+ address with its port if it has one (for example
+ <code>registry.example.com:5000</code>), the username, and the token.
+</li><li>
+Press Test. &quot;Signed in&quot; means it worked. Then Save registry.
+</li></ol>
+<p>From then on the Update button, the scheduled check for new images and Update all sign in to that registry by themselves. To rotate a token, enter the same address and username with the new token and save - it replaces the old one.</p>
+</section>
+<section class="panel doc" id="per-machine-settings-compose-override-yaml">
+<h2>Per-machine settings: compose.override.yaml</h2>
+<p>Anything specific to one server - the companion socket mount, a different published port, an extra volume - belongs in <code>compose.override.yaml</code> next to <code>compose.yaml</code>, not in <code>compose.yaml</code> itself. Compose reads and merges it automatically, so a newer <code>compose.yaml</code> (fetched by hand, or by a future Dockup) never collides with your local edits.</p>
+<pre><code>services:
+  dockup:
+    volumes:
+      - /run/dockup-companion.sock:/run/dockup-companion.sock</code></pre>
+</section>
+<section class="panel doc" id="dumps-before-a-backup">
+<h2>Dumps before a backup</h2>
+<p>A database copied while it is being written to often will not restore. Whatever copies this machine overnight copies live files, so anything that cannot be snapshotted safely has to be dumped first by something that understands the application.</p>
+<p>Settings has a panel for it. Each entry names the container to run in, the command that writes a clean copy to its output, and the file name to save it as. For Forgejo, which holds the git repositories:</p>
+<pre><code>[
+  {
+    &quot;name&quot;: &quot;forgejo&quot;,
+    &quot;container&quot;: &quot;forgejo&quot;,
+    &quot;command&quot;: [&quot;forgejo&quot;, &quot;dump&quot;, &quot;--type&quot;, &quot;zip&quot;, &quot;--file&quot;, &quot;-&quot;],
+    &quot;file&quot;: &quot;forgejo-dump.zip&quot;
+  }
+]</code></pre>
+<p>They run at 2am, well before an overnight copy that starts later, and land in <code>data/pre-backup</code> inside Dockup&#x27;s own folder, which gets swept up with everything else. Beside them is <code>status.json</code> saying when they were written, whether each worked, and the size and checksum of each file, so whatever reads it can tell a fresh dump from a stale one.</p>
+<p>A dump that fails leaves the last good one exactly where it is and says so, with its age. Overwriting a known good archive with an empty one is the one thing this must never do.</p>
+<p>Press *Run them now* in Settings to see it work rather than waiting until the morning.</p>
+</section>
+<section class="panel doc" id="if-dockup-is-down">
+<h2>If Dockup is down</h2>
+<pre><code>cd /opt/dockup &amp;&amp; docker compose ps      # is it running?
+docker compose logs --tail 50 dockup     # what happened?
+docker compose up -d                     # start it again</code></pre>
+<p>The container restarts itself (<code>restart: unless-stopped</code>) and has a health check, so a crash normally self-heals within a minute.</p>
+</section>
+<section class="panel doc" id="a-stack-says-it-s-running-but-nothing-can-reach-it">
+<h2>A stack says it&#x27;s running but nothing can reach it</h2>
+<p>After the Docker daemon restarts, a container can come back up reporting Up and healthy while its ports were never published. Dockup flags this now: the stack shows as a problem and names the port. A restart does not fix it - press <strong>Redeploy</strong>, which recreates the container and re-establishes the port.</p>
+<p>To see it by hand:</p>
+<pre><code>docker port &lt;container-name&gt;</code></pre>
+<p>Empty output on a running container that should publish something is the fault.</p>
+</section>
+<section class="panel doc" id="tailscale-serve-gets-no-certificate-for-a-port">
+<h2>Tailscale Serve gets no certificate for a port</h2>
+<p>If a stack publishes a port on every interface (<code>4050:80</code> rather than <code>127.0.0.1:4050:80</code>) and Tailscale Serve fronts that same port, Docker&#x27;s binding covers the tailnet address too and Tailscale can never bind it. Serve still lists the rule and plain HTTP still works, so it looks fine, but HTTPS to that address fails.</p>
+<p>This was tested directly on a scratch port: with a Serve rule in place, a container publishing on every interface <strong>cannot start at all</strong>, and a container publishing on loopback starts cleanly and serves over HTTPS while Serve holds the tailnet address at the same time. So the choice per stack is:</p>
+<ul><li>
+<strong>Reached over Tailscale</strong> (the usual case): publish on <code>127.0.0.1</code>.
+ Serve fronts it, HTTPS works, and stopping or restarting the stack
+ never fights Tailscale for the port.
+</li><li>
+<strong>Reached directly from your network as well</strong>: publish on every
+ interface and accept that Serve gets no certificate for that port, and
+ that the stack may refuse to start while a Serve rule for it exists.
+</li></ul>
+<p>Dockup warns about this on the stack&#x27;s page. To take the first option, in the stack&#x27;s Compose tab:</p>
+<pre><code>    ports:
+      - &quot;127.0.0.1:4050:80&quot;</code></pre>
+<p>then Redeploy. Tailscale Serve reaches it on 127.0.0.1 exactly as before, and it stops the reverse problem too - Tailscale grabbing a container&#x27;s port while the container is down, which leaves the container unable to start.</p>
+</section>
+<section class="panel doc" id="when-a-stack-can-t-be-checked-for-an-update">
+<h2>When a stack can&#x27;t be checked for an update</h2>
+<p>A stack&#x27;s dot cannot tell you a newer image is waiting if Dockup cannot reach the registry at all. The usual cause is DNS: Docker gives each container its name lookups, and on this machine it has nothing usable to pass on. Other containers will be affected too, not just Dockup - anything that checks a website, sends email or pulls an image.</p>
+<p>Check it from the host:</p>
+<pre><code>docker exec dockup getent hosts ghcr.io || echo &quot;no DNS in the container&quot;</code></pre>
+<p>If that fails, point the Docker daemon at a name server that works by putting this in <code>/etc/docker/daemon.json</code> and restarting Docker:</p>
+<pre><code>{ &quot;dns&quot;: [&quot;1.1.1.1&quot;, &quot;8.8.8.8&quot;] }</code></pre>
+<p>A private registry needs its sign-in details in Settings before Dockup can ask it anything.</p>
+</section>
+<section class="panel doc" id="uptime-check">
+<h2>Uptime check</h2>
+<p>Dockup answers on <code>/health</code> without a login. Point any LAN uptime tool (Uptime Kuma, etc.) at <code>http://&lt;server-ip&gt;:4000/health</code> and alert on non-200. That way you hear about it even if Dockup itself is the thing that&#x27;s down.</p>
+</section>
+<section class="panel doc" id="full-export-moving-house">
+<h2>Full export / moving house</h2>
+<p>Backups → *Download everything (zip)* gives you the stacks folder and Dockup&#x27;s database in one file. The stacks folder alone is enough to run everything with plain <code>docker compose</code> anywhere - no lock-in.</p>
+</section>
+<section class="panel doc" id="publishing-a-new-version">
+<h2>Publishing a new version</h2>
+<p>GitHub builds and publishes the image; nothing needs building on your own machine. Put the new number in <code>VERSION</code> in <code>app/config.py</code> and on top of <code>CHANGELOG.md</code>, commit, then tag that commit with a <code>v</code> in front of the number and push the tag:</p>
+<pre><code>git tag v1.2.0
+git push origin v1.2.0</code></pre>
+<p>The workflow in <code>.github/workflows/image.yml</code> checks the tag matches <code>VERSION</code>, builds for amd64 and arm64, and publishes <code>ghcr.io/gh-lm/dockup:1.2.0</code> and <code>:latest</code>. The first time, set the package&#x27;s visibility to public in the repository&#x27;s package settings on GitHub so that anyone can pull it without signing in.</p>
+<p>To try an image on your own machine before tagging, <code>tools/build-image.sh</code> builds it locally as <code>dockup:&lt;version&gt;</code> without pushing anything.</p>
+<p>Once it is published, every install sees it the same way it sees a newer image for any other stack: Dockup&#x27;s own card shows an update is waiting at the next check, and pressing Update pulls it.</p>
+</section>
+    </div>
+  </div>
+
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-inner">
+
+    <div class="foot-brand">
+      <a class="foot-lockup" href="index.html"><svg viewBox="0 0 48 48" width="26" height="26" aria-hidden="true"><rect width="48" height="48" rx="10" fill="#FBC711"/><rect x="7" y="26" width="15" height="15" rx="3" fill="#ffffff"/><rect x="26" y="26" width="15" height="15" rx="3" fill="#fff"/><rect x="16.5" y="7" width="15" height="15" rx="3" fill="#fff"/></svg>Dockup</a>
+      <p class="foot-tagline">A self-hosted Docker Compose stack manager for home labs - every stack,
+      its logs and its terminal in one window, with a real login and two-factor. Made by
+      <a href="https://lightmorphic.com">Lightmorphic</a> and given away under the GPL.</p>
+      <p class="foot-note">No cookies and no tracking. The only thing loaded from anywhere else is
+      the Lightmorphic app launcher in the menu bar.</p>
+    </div>
+
+    <nav class="foot-nav foot-mid" aria-label="The project">
+      <p class="foot-nav-title">The project</p>
+      <ul class="foot-nav-links">
+        <li><a href="whats-new.html">What's new</a></li>
+        <li><a href="security.html">Security</a></li>
+        <li><a href="licence.html">Licence</a></li>
+      </ul>
+    </nav>
+
+    <nav class="foot-nav foot-end" aria-label="Pages">
+      <p class="foot-nav-title">Pages</p>
+      <ul class="foot-nav-links">
+        <li><a href="index.html#features">Features</a></li>
+        <li><a href="index.html#install">Install</a></li>
+        <li><a href="index.html#faq">Questions</a></li>
+        <li><a href="documentation.html">Documentation</a></li>
+        <li><a href="runbook.html">Runbook</a></li>
+      </ul>
+    </nav>
+
+  </div>
+</footer>
+
+<div class="wrap">
+<div class="oss-bar">
+  <div class="marks">
+    <a href="https://github.com/gh-lm/dockup" target="_blank" rel="noopener noreferrer"
+       aria-label="Dockup on GitHub (opens in a new tab)">
+      <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+    </a>
+    <a href="https://opensource.org" target="_blank" rel="noopener noreferrer"
+       aria-label="Open Source Initiative (opens in a new tab)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="5" r="2.6"/>
+        <circle cx="5.2" cy="17" r="2.6"/>
+        <circle cx="18.8" cy="17" r="2.6"/>
+        <path d="M10.7 7.3 6.5 14.7M13.3 7.3l4.2 7.4M7.8 17h8.4"/>
+      </svg>
+    </a>
+  </div>
+  <nav aria-label="Source code">
+    <a href="https://github.com/gh-lm/dockup" target="_blank" rel="noopener noreferrer" aria-label="Repository on GitHub (opens in a new tab)">Repository</a>
+    <a href="https://github.com/gh-lm/dockup/blob/main/README.md" target="_blank" rel="noopener noreferrer" aria-label="Documentation on GitHub (opens in a new tab)">Documentation</a>
+    <a href="https://github.com/gh-lm/dockup/security/policy" target="_blank" rel="noopener noreferrer" aria-label="Security on GitHub (opens in a new tab)">Security</a>
+    <a href="https://github.com/gh-lm/dockup/blob/main/LICENSE" target="_blank" rel="noopener noreferrer" aria-label="Licence on GitHub (opens in a new tab)">Licence</a>
+    <a href="https://github.com/gh-lm/dockup/blob/main/CHANGELOG.md" target="_blank" rel="noopener noreferrer" aria-label="Changelog on GitHub (opens in a new tab)">Changelog</a>
+    <a href="https://github.com/gh-lm/dockup/issues" target="_blank" rel="noopener noreferrer" aria-label="Issues on GitHub (opens in a new tab)">Issues</a>
+    <a href="https://github.com/gh-lm/dockup/releases" target="_blank" rel="noopener noreferrer" aria-label="Releases on GitHub (opens in a new tab)">Releases</a>
+  </nav>
+</div>
+</div>
+
+<div class="legal">
+  <div class="wrap legal-inner">
+    <p class="legal-text">
+      &copy; Lightmorphic Ltd. Registered in England and Wales, company number 17423646.<br>
+      Registered office: 82A James Carter Road, Mildenhall, IP28 7DE.<br>
+      Page last updated: <time datetime="2026-10-19">19 October 2026</time>.
+    </p>
+    <nav class="legal-links" aria-label="Legal">
+      <a href="privacy.html">Privacy</a>
+      <a href="cookies.html">Cookies</a>
+      <a href="terms.html">Terms</a>
+      <a href="accessibility.html">Accessibility</a>
+      <a href="complaints.html">Complaints</a>
+    </nav>
+  </div>
+</div>
+
+<script src="https://apps.lightmorphic.com/launcher.js" defer></script>
+</body>
+</html>

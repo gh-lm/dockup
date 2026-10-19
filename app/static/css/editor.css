@@ -1,0 +1,26 @@
+/* CodeMirror wrapped in the house look - solid panel, no CM default
+   theme. Colours and chrome (background, gutters, cursor, selection,
+   active line, matching bracket, YAML token colours) are set once in
+   JS as a CM6 theme/highlight extension - see the DockupEditor bundle
+   entry point - rather than as CSS overrides here, since CM6 doesn't
+   emit the same simple class names CM5 did. This file only holds the
+   sizing CM6 doesn't know to set itself, plus Dockup's own frame/
+   status-bar chrome around the editor. */
+
+.cm-editor { min-height: 22rem; }
+.cm-scroller { overflow: auto; }
+/* The line between the gutter and the code was 8% white on the dark
+   editor - about 1.2:1, invisible. Three classes here outrank the two
+   CM6's injected theme uses, so no !important needed. */
+.editor-frame .cm-editor .cm-gutters { border-right: 1px solid rgba(255, 255, 255, 0.24); }
+
+.editor-frame { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.editor-status {
+  display: flex; align-items: center; gap: 0.5rem;
+  font-size: 0.8125rem; font-weight: 600; padding: 0.375rem 0.75rem;
+  border-top: 1px solid var(--border); background: var(--muted); color: var(--muted-fg);
+}
+.editor-status.ok { color: var(--success); }
+.editor-status.warn { color: var(--warning); }
+.editor-status.bad { color: var(--danger); }
+.editor-status .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex: none; }

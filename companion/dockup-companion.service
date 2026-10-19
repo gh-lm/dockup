@@ -1,0 +1,26 @@
+[Unit]
+Description=Dockup companion (narrow, root-only: OS updates + Tailscale Serve)
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /opt/dockup-companion/dockup-companion.py
+Restart=on-failure
+RestartSec=5
+User=root
+Group=dockup-companion
+RuntimeDirectory=dockup-companion
+
+# The real security boundary is the companion's own fixed command set
+# (see dockup-companion.py) - it can't run arbitrary commands no matter
+# what reaches this socket. ProtectHome is free hardening on top of
+# that; ProtectSystem=strict is deliberately skipped here since apt/
+# tailscale both need to write to several system paths and getting that
+# allowlist wrong causes confusing silent failures that are a pain to
+# debug on a remote box - not worth it for what the narrow command set
+# already covers.
+ProtectHome=true
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

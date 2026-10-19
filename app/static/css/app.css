@@ -1,0 +1,989 @@
+/* Dockup - house style. Solid panels, one accent, no framework. */
+
+@font-face {
+  font-family: "Trindle Sans";
+  src: url("/static/fonts/TrindleSans-Variable.woff2") format("woff2-variations");
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+/* Dark only. There is no light theme and no switcher - the palette
+   below is the palette, full stop. */
+:root {
+  color-scheme: dark;
+  /* A deep charcoal page, never black: a shadow cannot show on
+     near-black, so panels would look flat. */
+  --bg: #1c1e26;  --fg: #fafafa;
+  --border: #454955;  --muted: #3a3d48;  --muted-fg: #c2c2cc;
+
+  /* Three layers, each lighter than the last: page, panel, raised
+     card. A typing box goes the other way and sits sunk. */
+  --panel: #282b34;   --panel-border: rgba(255,255,255,.09);
+  --raised: #343844;  --raised-border: rgba(255,255,255,.12);
+  --field: #14151b;   --field-border: #7e8494;
+  --edge-light: inset 0 1px 0 rgba(255,255,255,.12);
+  --shadow-panel: var(--edge-light), 0 0 0 1px rgba(0,0,0,.45),
+    0 4px 8px rgba(0,0,0,.35), 0 16px 32px -12px rgba(0,0,0,.55);
+  --shadow-raised: inset 0 1px 0 rgba(255,255,255,.10), 0 0 0 1px rgba(0,0,0,.3),
+    0 2px 6px rgba(0,0,0,.3), 0 8px 16px -8px rgba(0,0,0,.4);
+  --shadow-field: inset 0 2px 5px rgba(0,0,0,.5);
+
+  --accent: #fbc711;  --accent-hover: #ddaf0f;  --on-accent: #645007;
+  --accent-container: #4b3c05;  --on-accent-container: #fde694;
+
+  --brand-navy: #111827;
+  /* Lightened so type passes 4.5:1 on a raised card, the lightest
+     surface there is. */
+  --link: #80c2f9;
+  --danger: #ffa39b;   --danger-bg: #350f0c;  --on-danger: #350f0c;
+  --success: #80cf83;  --success-bg: #102611;
+  --warning: #ffc006;  --warning-bg: #382a01;
+  --info: #80c2f9;     --info-bg: #072135;
+
+  /* How things are going: dots, rings and bars. Never the highlight
+     colour, which means "chosen" or "do this". */
+  --state-calm: #2295f1;  --state-good: #4bae4f;  --state-busy: #fe9700;
+  --state-bad: #f34236;   --state-quiet: #9e9d9e;
+
+  --radius: 0.875rem;
+  --panel-radius: 1.375rem;
+  --term-bg: #14151b;
+}
+/* The logomark's navy squares would vanish into the dark page. */
+.logo-navy { fill: #fafafa; }
+
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  font-family: "Trindle Sans", system-ui, sans-serif;
+  background: var(--bg); color: var(--fg);
+  font-size: 1rem; line-height: 1.6;
+}
+h1, h2, h3 { margin: 0 0 0.5rem; }
+h1 { font-size: 2rem; font-weight: 700; letter-spacing: -0.02em; }
+h2 { font-size: 1.75rem; font-weight: 600; letter-spacing: -0.01em; }
+h3 { font-size: 1.0625rem; font-weight: 600; }
+a { color: var(--link); }
+/* Text runs the full width of its box: no narrow column that leaves
+   the right-hand side of a panel empty. */
+p { margin: 0 0 0.75rem; }
+
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* The router moves focus to #content on every route change so screen
+   readers announce the new page - real for accessibility, but a ring
+   around the entire main panel reads as a stray highlight rather than
+   a focus indicator. Keep the DOM focus, drop just the visible ring
+   here; every actual interactive element still gets one. */
+#content:focus-visible { outline: none; }
+
+.hint { font-size: 0.8125rem; color: var(--muted-fg); font-weight: 400; }
+/* A plain tick, not the usual coloured status dot - see the container
+   table in viewStack(). Same colour as ordinary body text on purpose,
+   so it reads as a report, not a control. */
+.state-ok { color: var(--fg); }
+
+/* ---- shell: one window ---- */
+
+.shell {
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: auto 1fr auto;
+  grid-template-areas: "top" "main" "footer";
+  /* dvh, not vh: on a phone the address bar comes and goes, and a
+     plain 100vh is taller than the visible screen while it's showing,
+     pushing the footer under the bar. Older browsers fall back to vh. */
+  height: 100vh;
+  height: 100dvh;
+  /* A fixed app-container width rather than full-bleed, which reads as
+     too wide and empty on a big monitor without a sidebar. A plain
+     max-width needs no mobile override: it simply never applies below
+     1440px. */
+  max-width: 1440px;
+  margin: 0 auto;
+}
+.topbar {
+  grid-area: top;
+  display: flex; align-items: center; gap: 0.75rem;
+  padding: 0.625rem 1rem;
+  background: var(--panel);
+  border-bottom: 1px solid var(--panel-border);
+}
+.brand {
+  display: flex; align-items: center; gap: 0.5rem;
+  font-weight: 700; font-size: 1.125rem; letter-spacing: -0.01em;
+  color: var(--fg); text-decoration: none;
+}
+.spacer { flex: 1; }
+.topbar-actions { display: flex; align-items: center; gap: 0.75rem; }
+
+
+.inline-form { display: inline; margin: 0; }
+
+/* Buttons whose label changes while they work ("Check for updates" ->
+   "Checking...") reserve room for the longest label they'll ever show,
+   so the row never reflows and neighbouring buttons never jump sideways
+   mid-click. */
+.btn-steady { min-width: 10.5rem; }
+
+/* Footer: the version numbers, quiet by default because a version
+   number is a fact you look up rather than something that should compete
+   for attention. Laid out horizontally along a full-width strip. */
+.app-footer {
+  grid-area: footer;
+  display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap;
+  padding: 0.625rem 1.5rem;
+  border-top: 1px solid var(--panel-border);
+  background: var(--panel);
+  font-size: 0.75rem; color: var(--muted-fg);
+}
+.version-row { display: flex; align-items: center; gap: 0.375rem; }
+/* A fixed brand mark, not a themed app element - always the dark pill
+   regardless of Dockup's own light/dark theme, the same way a "built
+   with X" badge from any other host stays constant everywhere it's
+   embedded. */
+.lm-badge {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  padding: 0.375rem 0.75rem 0.375rem 0.625rem;
+  border-radius: 999px;
+  background: var(--brand-navy);
+  color: #fafafa;
+  text-decoration: none;
+  font-size: 0.8125rem;
+  transition: background-color 120ms;
+}
+.lm-badge:hover { background: #1f2937; }
+.lm-badge-label { color: #a1a1aa; }
+.lm-badge-name { font-weight: 700; color: #fff; }
+.lm-badge-mark { width: 18px; height: 18px; flex: none; }
+.lm-badge-ext { display: inline-flex; width: 13px; height: 13px; flex: none; color: #a1a1aa; }
+.lm-badge-ext svg { width: 100%; height: 100%; }
+.version-name { font-weight: 600; }
+.version-num { font-variant-numeric: tabular-nums; }
+.version-row.bad .version-num { color: var(--danger); }
+.btn-ico { width: 18px; height: 18px; flex: none; }
+
+/* display:inline-block matters here - a bare <span> is inline by default,
+   and width/height are ignored on inline elements. This only ever looked
+   right in flex containers (cards, sidebar), which blockify their direct
+   children regardless - anywhere else, like a plain table cell, the dot
+   silently collapsed to 0x0 without this. */
+/* One consistent size everywhere this appears - dashboard cards, a
+   stack's own page, the live action panel, the help examples - only
+   the colour (state) ever changes, never the dot's own size. */
+.status-dot { display: inline-block; width: 13.5px; height: 13.5px; border-radius: 50%; flex: none; background: var(--danger); }
+.status-dot.running { background: var(--success); }
+.status-dot.warning, .status-dot.update { background: var(--warning); }
+.status-dot.inactive { background: var(--muted-fg); }
+.status-dot[role="button"] { cursor: pointer; }
+.status-dot.busy { animation: dot-pulse 1s ease-in-out infinite; }
+@keyframes dot-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+.content {
+  grid-area: main;
+  overflow-y: auto;
+  padding: 1.5rem;
+}
+
+/* ---- panels ---- */
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--panel-radius);
+  box-shadow: var(--shadow-panel);
+  padding: 1.5rem;
+}
+/* Spaces out panels stacked vertically down a page (Settings, stack
+   detail, etc). Scoped to direct children of #content specifically:
+   cards inside any grid (.stack-grid, .prune-grid, and any future one)
+   also carry the .panel class for their look, but sit nested one level
+   deeper and must NOT pick up this margin - the grid's own `gap`
+   already spaces them, and margin-top here would push every card but
+   the first out of row alignment. */
+#content > .panel + .panel,
+#content > .stack-grid + .panel,
+#content > .panel + .btn-row,
+#content > .panel + .stack-grid { margin-top: 1.25rem; }
+.panel-head { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem; }
+.panel-head h1, .panel-head h3, .panel-head h2 { margin: 0; }
+.panel-head .spacer { flex: 1; }
+
+/* ---- buttons ---- */
+
+.btn {
+  font: inherit; font-weight: 600; font-size: 0.9375rem;
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+  padding: 0.5rem 1.125rem; border-radius: var(--radius);
+  border: 1px solid transparent; cursor: pointer;
+  background: var(--muted); color: var(--fg); border-color: var(--border);
+  text-decoration: none;
+}
+.btn:hover { background: var(--border); }
+.card.clickable:hover, .rows .row.clickable:hover { border-color: var(--accent); }
+.btn-primary { background: var(--accent); color: var(--on-accent); border-color: transparent; }
+.btn-primary:hover { background: var(--accent-hover); }
+.btn-danger { background: var(--danger); color: var(--on-danger); border-color: transparent; }
+.btn-danger:hover { filter: brightness(0.92); }
+.btn-block { width: 100%; }
+/* All stacks / New stack, just above the dashboard's card grid - not
+   full-size CTA buttons since they sit next to a whole grid of cards,
+   but still real comfortable buttons, not squeezed to the point their
+   own label wraps ("All" over "stacks"). */
+.dash-actions {
+  gap: 0.5rem; margin-bottom: 1.25rem; flex-wrap: nowrap;
+}
+.dash-actions > .btn {
+  padding: 0.5rem 0.75rem; font-size: 0.875rem; gap: 0.375rem;
+  white-space: nowrap;
+}
+.dash-actions > .btn .btn-ico { width: 15px; height: 15px; flex: none; }
+.btn[disabled] { opacity: 0.55; cursor: not-allowed; }
+
+.icon-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; padding: 0; position: relative;
+  border-radius: 50%; border: 1px solid transparent;
+  background: var(--muted); color: var(--fg); cursor: pointer;
+  transition: transform 0.12s ease, background 0.12s ease;
+}
+/* A thin highlight edge while the pointer is on it, not a different
+   fill: the fill means state (see .confirming below). */
+.icon-btn:hover { border-color: var(--accent); }
+.icon-btn:active { transform: scale(0.92); }
+.icon-btn svg { width: 18px; height: 18px; }
+/* The button is 28px, which is under the 44px a finger needs, so an
+   invisible tap area sits around it on touch screens. */
+@media (pointer: coarse) {
+  .icon-btn::after {
+    content: ""; position: absolute; left: 50%; top: 50%;
+    width: 44px; height: 44px; transform: translate(-50%, -50%);
+  }
+}
+/* Armed: it asks "are you sure", it does not say it worked. Filled in
+   the highlight colour with a dark icon, whatever colour is picked. */
+.icon-btn.confirming { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.icon-btn[disabled] { opacity: 0.45; cursor: progress; }
+.icon-btn.busy { animation: dot-pulse 1s ease-in-out infinite; }
+.icon-btn.active { background: var(--accent-container); color: var(--on-accent-container); }
+/* A failure turns the button red, then it goes back to resting so it
+   can be tried again. */
+.icon-btn.failed { background: var(--danger); color: var(--on-danger); border-color: var(--danger); }
+
+/* The label on pointing: a word or two naming the button, as a small
+   dark raised pill. Fixed colours rather than the theme's, so it reads
+   the same over a panel, a photograph or another button. No tail and no
+   bubble shape - it is a label, not speech.
+
+   One shared element, placed by script (see showTip in app.js) rather
+   than a CSS pseudo-element on each button: pure CSS cannot know where
+   the screen edge is, and cannot wrap long text. Fixed-position on the
+   body, it sits above everything, keeps itself on screen, and floats
+   over whatever is underneath, neighbouring buttons included. */
+.tip-bubble {
+  position: fixed; left: 0; top: 0; z-index: 60;
+  max-width: min(20rem, calc(100vw - 1rem));
+  background: #343844; color: #fafafa;
+  border: 1px solid rgba(255,255,255,.3);
+  border-radius: 999px;
+  box-shadow: 0 0 0 1px rgba(0,0,0,.45), 0 4px 10px rgba(0,0,0,.45);
+  padding: 5px 10px; font-size: 0.75rem; font-weight: 600; line-height: 1;
+  white-space: nowrap; pointer-events: none;
+  opacity: 0; visibility: hidden;
+  transition: opacity 0.07s ease, visibility 0s linear 0.07s;
+}
+/* A message long enough to need two lines is not a label, so it keeps
+   the softer corners and wraps instead of running off the screen. */
+.tip-bubble.wrap {
+  white-space: normal; border-radius: var(--radius);
+  line-height: 1.4; padding: 0.5rem 0.75rem; overflow-wrap: anywhere;
+}
+.tip-bubble.show {
+  opacity: 1; visibility: visible;
+  transition-delay: 0s;
+}
+
+/* ---- forms: equal gaps, full-width fields ---- */
+
+.form-grid { display: grid; gap: 1.25rem; }
+.form-grid .btn { justify-self: start; }
+.form-grid .btn-block { justify-self: stretch; }
+.field { display: grid; gap: 0.375rem; }
+.field label, .field-label { font-size: 0.9375rem; font-weight: 600; }
+input, select, textarea {
+  font: inherit; color: var(--fg);
+  background: var(--field);
+  border: 1px solid var(--field-border); border-radius: var(--radius);
+  box-shadow: var(--shadow-field);
+  padding: 0.5625rem 0.875rem;
+  display: block; width: 100%;
+}
+textarea { min-height: 8rem; resize: vertical; }
+input[type="checkbox"], input[type="radio"] { width: auto; display: inline-block; }
+.check-row { display: flex; gap: 0.5rem; align-items: center; }
+.check-row.tight { font-size: 0.9375rem; font-weight: 400; }
+.check-row.archived-row { padding: 0.5rem 0; border-bottom: 1px solid var(--panel-border); }
+.check-row.archived-row:last-child { border-bottom: none; }
+.hidden { display: none; }
+.card-actions { margin-top: 0.75rem; }
+.code-editor {
+  font-family: ui-monospace, "Cascadia Mono", Menlo, monospace;
+  font-size: 0.875rem; line-height: 1.55;
+  min-height: 24rem; white-space: pre; overflow-x: auto;
+  tab-size: 2;
+}
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; align-items: end; }
+@media (max-width: 720px) { .two-col { grid-template-columns: 1fr; } }
+
+/* ---- alerts / badges ---- */
+
+/* Words, not a message box. News about a page goes in that page's one
+   headline sentence; what is left here is a problem or a caution, said
+   in plain words where it belongs, in the colour of the news. */
+.alert { font-weight: 600; margin: 0 0 0.75rem; }
+.alert-danger, .note-bad { color: var(--danger); font-weight: 600; margin: 0 0 0.75rem; }
+.alert-warning { color: var(--warning); }
+.note { margin: 0 0 0.75rem; }
+.port-conflict-hint { font-weight: 400; margin: 0.5rem 0; }
+.port-conflict-hint p { margin: 0 0 0.5rem; }
+.port-conflict-hint p:last-child { margin-bottom: 0; }
+.port-conflict-hint strong { font-weight: 700; }
+.port-conflict-hint code { font-size: 0.875em; }
+
+/* ---- stack dashboard ---- */
+
+.stack-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+/* grid/flex items default to min-width:auto, which lets a single long
+   unbroken name (container/stack names have no spaces) refuse to shrink
+   and force its whole column wider than its neighbours - min-width:0
+   at every level here lets it wrap/truncate within its own card instead */
+.stack-card {
+  cursor: pointer; transition: border-color 120ms; min-width: 0;
+  position: relative; padding: 1rem;
+}
+.stack-card:hover { border-color: var(--accent); }
+.stack-card h3 { display: flex; align-items: center; gap: 0.5rem; min-width: 0; }
+/* The name is the one part that gives way: it takes whatever room is
+   left after the dot and the web-UI link, and ends in an ellipsis
+   rather than pushing anything out of the card. min-width:0 is what
+   lets a flex item shrink below its own text width at all. */
+.stack-card h3 .card-name {
+  flex: 1 1 auto; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* An image reference has no spaces to break at, so at a narrow column
+   width it used to run straight out of the card (measured: 96px past
+   the edge on a 212px card). Let it break mid-word instead - the card
+   grows a line, which the grid row absorbs. */
+.stack-card .hint { display: block; margin-top: 0.375rem; overflow-wrap: anywhere; }
+/* Same reasoning wherever else the app prints something with no spaces
+   in it - a mount path in the delete confirmation, a Tailscale
+   hostname, the two-factor key. Left as one rule rather than chased
+   case by case. */
+code { overflow-wrap: anywhere; }
+/* Open web UI sits on the title row, at the card's right edge. It used
+   to be absolutely positioned and vertically centred, which needed a
+   permanent 3.25rem gutter on EVERY card - including the ones with no
+   link, whose text lost that width for nothing - and left the icon
+   stranded mid-card whenever a taller neighbour stretched the row. */
+.stack-card .web-link { flex: none; }
+
+/* ---- tables ---- */
+
+/* Each row is a raised strip, like a card: the same lighter surface,
+   lit top edge and shadow, with room between rows for the shadow to
+   show. Separate borders rather than collapsed ones, because a
+   collapsed table cannot carry a shadow on its rows at all. */
+table { width: 100%; border-collapse: separate; border-spacing: 0 10px; }
+caption { text-align: left; font-size: 0.8125rem; color: var(--muted-fg); padding-bottom: 0.5rem; }
+th {
+  text-align: left; font-size: 0.875rem; font-weight: 500;
+  letter-spacing: 0.05em; color: var(--muted-fg);
+  padding: 0.25rem 0.875rem;
+}
+tbody tr { background: var(--raised); box-shadow: var(--shadow-raised); }
+td { padding: 0.6875rem 0.875rem; font-size: 0.9375rem; }
+td:first-child { border-radius: var(--radius) 0 0 var(--radius); }
+td:last-child { border-radius: 0 var(--radius) var(--radius) 0; }
+/* Figures line up and keep still as they change. */
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.table-wrap { overflow-x: auto; }
+
+/* ---- tabs ---- */
+
+.tabs {
+  display: flex; gap: 0.25rem; flex-wrap: wrap;
+  margin-bottom: 1.25rem; padding: 5px;
+  background: var(--field); box-shadow: var(--shadow-field);
+  border-radius: var(--radius);
+}
+.tabs button {
+  font: inherit; font-weight: 600; font-size: 0.9375rem;
+  background: none; border: 1px solid transparent; cursor: pointer;
+  color: var(--muted-fg); padding: 0.4375rem 1rem;
+  border-radius: calc(var(--radius) - 5px);
+}
+/* The chosen tab lifts out of the strip as a raised card. The highlight
+   colour is left alone here so it stays free for the main action. */
+.tabs button.active {
+  color: var(--fg); background: var(--raised);
+  border-color: var(--raised-border); box-shadow: var(--shadow-raised);
+}
+.tabs button:hover { color: var(--fg); border-color: var(--accent); }
+
+/* ---- log viewers ---- */
+
+.log-view {
+  background: var(--term-bg); color: #d6d8e0;
+  font-family: ui-monospace, "Cascadia Mono", Menlo, monospace;
+  font-size: 0.8125rem; line-height: 1.5;
+  border-radius: var(--radius);
+  padding: 0.875rem 1rem; height: 26rem; overflow: auto;
+  white-space: pre-wrap; word-break: break-word;
+}
+.log-view .log-error { color: #ff7b72; font-weight: 700; }
+.log-view .log-warn { color: #f0c674; }
+.log-view:empty::before { content: "Waiting for output…"; color: #6a6f85; }
+.action-output { height: 13rem; }
+
+/* The copy button sits inside the log panel's top-right corner, over
+   the log itself, so it stays put while the log scrolls and takes no
+   height from it. Its own colours, not the page's: it sits on the dark
+   terminal background in both light and dark mode. Right inset clears
+   a scrollbar. */
+.log-wrap { position: relative; }
+.log-copy {
+  position: absolute; top: 0.5rem; right: 1.125rem;
+  gap: 0.375rem; padding: 0.3125rem 0.625rem;
+  font-size: 0.75rem; border-radius: 0.625rem;
+  /* Solid, not translucent - it floats over the log text, and a log
+     line showing through it would be worse than the line being hidden
+     behind it for as long as it takes to scroll. */
+  background: #2a2c36; color: #d6d8e0;
+  border-color: rgba(255, 255, 255, 0.30);
+}
+.log-copy:hover { background: #3a3d4a; color: #ffffff; }
+.log-copy svg { width: 15px; height: 15px; flex: none; }
+/* On a phone the word costs more room than it earns - the icon and its
+   tooltip carry it, and less of the log sits behind the button. */
+@media (max-width: 560px) {
+  .log-copy span { display: none; }
+  .log-copy { padding: 0.375rem; }
+}
+
+/* Off-screen textarea used only to copy text on a plain-http address,
+   where the clipboard API isn't available. Never seen. */
+.copy-helper { position: fixed; top: -1000px; left: 0; opacity: 0; }
+
+.term-host { background: var(--term-bg); border-radius: var(--radius); padding: 0.5rem; height: 28rem; }
+.term-host .terminal { height: 100%; }
+
+/* ---- floating progress panel ---- */
+/* A small, dismissible box for long-running background actions
+   (e.g. installing the companion) - stays pinned to the viewport so it
+   reads as "here's what's happening right now", independent of
+   scrolling, and never blocks the page underneath it. */
+.progress-panel {
+  position: fixed; top: 4.5rem; right: 1.25rem; width: 340px; max-width: calc(100vw - 2.5rem);
+  background: var(--panel); border: 1px solid var(--panel-border); border-radius: var(--panel-radius);
+  box-shadow: var(--shadow-panel); z-index: 60; overflow: hidden;
+}
+.progress-panel-head {
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.625rem 0.5rem 0.625rem 1rem; border-bottom: 1px solid var(--panel-border);
+  font-weight: 600; font-size: 0.9375rem;
+}
+.progress-panel-head .status-dot { flex: none; }
+.progress-panel-head .title { flex: 1; }
+.progress-panel-body {
+  background: var(--term-bg); color: #d6d8e0;
+  font-family: ui-monospace, "Cascadia Mono", Menlo, monospace;
+  font-size: 0.8125rem; line-height: 1.5;
+  padding: 0.75rem 1rem; max-height: 22rem; overflow-y: auto;
+  white-space: pre-wrap; word-break: break-word;
+}
+.progress-panel-body .log-error { color: #ff7b72; font-weight: 700; }
+.progress-panel-body .log-warn { color: #f0c674; }
+
+/* ---- activity log ---- */
+
+.activity-row { display: grid; grid-template-columns: 9.5rem 7rem 1fr; gap: 0.75rem; padding: 0.5rem 0.25rem; border-bottom: 1px solid var(--border); font-size: 0.9375rem; align-items: baseline; }
+.activity-row:last-child { border-bottom: none; }
+.activity-row.is-error { background: var(--danger-bg); border-radius: 8px; }
+.activity-row.is-error .a-msg, .activity-row.is-error .a-cat { color: var(--danger); font-weight: 700; }
+.activity-row.is-warning .a-msg { color: var(--warning); }
+.a-ts { color: var(--muted-fg); font-size: 0.8125rem; white-space: nowrap; }
+.a-cat { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted-fg); }
+.a-detail { grid-column: 2 / 4; font-size: 0.8125rem; color: var(--muted-fg); white-space: pre-wrap; }
+@media (max-width: 720px) { .activity-row { grid-template-columns: 1fr; gap: 0.125rem; } .a-detail { grid-column: 1; } }
+
+/* ---- maintenance ---- */
+
+.prune-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.25rem; }
+.prune-card .btn { margin-top: 0.75rem; }
+
+/* ---- help page ---- */
+
+.help-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.75rem; margin-top: 1rem;
+}
+.help-tile {
+  display: flex; gap: 0.75rem; align-items: flex-start;
+  padding: 0.875rem; border: 1px solid var(--border); border-radius: var(--radius);
+}
+.help-tile-icon {
+  flex: none; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center;
+  border-radius: 0.625rem; background: var(--muted); color: var(--fg);
+}
+.help-tile-icon svg { width: 18px; height: 18px; }
+.help-tile h4 { margin: 0 0 0.125rem; font-size: 0.9375rem; }
+.help-tile p { margin: 0; font-size: 0.8125rem; color: var(--muted-fg); }
+
+.help-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.25rem; margin-top: 1rem; }
+.help-col { padding: 1rem; border: 1px solid var(--border); border-radius: var(--radius); }
+.help-col h4 { margin: 0 0 0.375rem; }
+.help-col p { margin: 0; font-size: 0.875rem; color: var(--muted-fg); }
+
+.help-steps { list-style: none; margin: 1rem 0 0; padding: 0; counter-reset: help-step; }
+.help-steps li {
+  counter-increment: help-step; display: flex; gap: 0.75rem; align-items: baseline;
+  padding: 0.375rem 0;
+}
+.help-steps li::before {
+  content: counter(help-step); flex: none; width: 22px; height: 22px; margin-top: 0.0625rem;
+  border-radius: 50%; background: var(--accent); color: var(--on-accent);
+  font-size: 0.75rem; font-weight: 700; display: flex; align-items: center; justify-content: center;
+}
+
+.help-dots { display: flex; flex-direction: column; gap: 0.625rem; margin-top: 1rem; }
+.help-dots li { list-style: none; display: flex; gap: 0.625rem; align-items: baseline; }
+.help-dots .status-dot { margin-top: 0.3125rem; }
+.prune-result { margin-top: 0.5rem; font-size: 0.875rem; font-weight: 600; }
+.prune-result.ok { color: var(--success); }
+.prune-result.bad { color: var(--danger); }
+.prune-result p { font-weight: 400; margin: 0.35rem 0; }
+.vol-list { list-style: none; margin: 0.5rem 0; padding: 0; display: grid; gap: 0.35rem; }
+.vol-list li { border-left: 3px solid var(--border); padding: 0.25rem 0 0.25rem 0.6rem; font-weight: 400; }
+.vol-list li strong { font-weight: 600; }
+.vol-list .hint { display: block; font-size: 0.8125rem; color: var(--muted-fg); }
+.vol-list .vol-in-use { border-left-color: var(--danger); background: var(--danger-bg); }
+.vol-list .vol-superseded { border-left-color: var(--warning); background: var(--warning-bg); }
+.vol-list .vol-orphaned { border-left-color: var(--success); }
+
+/* ---- auth pages ---- */
+
+/* Two panels side by side so the width is used: the form on the left,
+   a short word on what signing in gives on the right. On a phone they
+   stack, the form first. */
+.auth-page { display: grid; place-items: center; min-height: 100vh; min-height: 100dvh; padding: 1.5rem; }
+.auth-wrap {
+  width: 100%; max-width: 58rem;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 1.75rem; align-items: start;
+}
+.auth-panel { display: grid; gap: 1.25rem; }
+.auth-logo { display: flex; align-items: center; gap: 0.75rem; }
+.auth-logo h1 { font-size: 1.5rem; margin: 0; }
+.auth-lead { margin: 0; color: var(--muted-fg); }
+.auth-side h2 { font-size: 1.25rem; margin: 0 0 0.5rem; }
+.auth-side > p { color: var(--muted-fg); }
+.auth-tiles { display: grid; gap: 0.75rem; }
+.auth-tiles .card b { display: block; font-size: 0.9375rem; margin-bottom: 0.25rem; }
+.auth-tiles .card span { font-size: 0.875rem; color: var(--muted-fg); }
+/* The eye button sits inside the right-hand end of the password box. */
+.field-with-btn { position: relative; }
+.field-with-btn input { padding-right: 3rem; }
+.field-with-btn .icon-btn {
+  position: absolute; right: 0.5rem; top: 50%; transform: translateY(-50%);
+  background: none;
+}
+.field-with-btn .icon-btn:active { transform: translateY(-50%) scale(0.92); }
+/* First run has only the one panel, so it keeps the single column. */
+.auth-wrap.auth-single { grid-template-columns: 1fr; max-width: 30rem; }
+@media (max-width: 820px) {
+  .auth-wrap { grid-template-columns: 1fr; max-width: 30rem; }
+}
+
+/* ---- responsive ---- */
+
+@media (max-width: 860px) {
+  .content { padding: 1rem; }
+  .app-footer { padding: 0.625rem 1rem; gap: 1rem; }
+  /* The topbar's icon-button cluster (nav links, power buttons, help,
+     sign out) doesn't fit a narrow screen as one row and shouldn't wrap
+     into a jumbled second row either - it scrolls horizontally instead,
+     a plain, predictable mobile pattern. Brand and the update dot stay
+     put outside this nav, always visible without scrolling. */
+  .topbar { gap: 0.5rem; padding: 0.625rem 0.75rem; }
+  .topbar-actions {
+    display: flex; overflow-x: auto; flex: none; max-width: 40vw;
+    scrollbar-width: none;
+  }
+  .topbar-actions::-webkit-scrollbar { display: none; }
+  .topbar-actions > * { flex: none; }
+  .dash-actions { margin-bottom: 1rem; }
+  .stack-grid { grid-template-columns: 1fr; }
+}
+/* Touch screens: every control at least 44px in both directions (the
+   WCAG target size), rather than a 34px circle that's easy to miss on
+   a phone. The row of icon buttons only gets a little taller. */
+@media (max-width: 1023px) {
+  .icon-btn { width: 44px; height: 44px; }
+  /* ...and the top bar gives back that extra height through its
+     padding, so it never takes more than 15% of a phone held sideways. */
+  .topbar { padding-top: 0.375rem; padding-bottom: 0.375rem; }
+}
+
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px;
+  clip-path: inset(50%); overflow: hidden; white-space: nowrap;
+}
+
+/* ---- small layout utilities (kept out of inline style= so the
+   style-src 'self' CSP holds - no unsafe-inline needed) ---- */
+
+.hint-tight { padding: 0 0.75rem; }
+.stack-title { font-size: 1.5rem; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 3rem; flex: 1 1 auto; }
+/* The stack's name on its own row, with Open web UI opposite it. The
+   action buttons (status dot, Start/Stop/Restart/Redeploy/Update/Down/
+   Delete) get their own full-width row underneath. */
+.stack-head { display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1rem; }
+.stack-title-row { display: flex; align-items: center; gap: 0.75rem; }
+.stack-head .panel-head { margin-bottom: 0; }
+.stack-actions { flex-wrap: nowrap; }
+/* Below 720px (a phone): the action row becomes a single edge-to-edge
+   bar, every button taking an equal share of the width with no gap, so
+   they get bigger to tap as the screen narrows rather than smaller. The
+   status dot stays a small circle: a stretched dot would look like a
+   broken button. */
+@media (max-width: 720px) {
+  .stack-actions { gap: 0; }
+  .stack-actions .status-dot { margin-right: 0.5rem; }
+  .stack-actions .icon-btn {
+    flex: 1 1 0; width: auto; height: 44px; border-radius: var(--radius);
+  }
+  .stack-actions .icon-btn svg { width: 20px; height: 20px; }
+}
+.btn-row { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+.btn-row.align-center { align-items: center; }
+.hint-mt { margin-top: 0.5rem; }
+.mt-lg { margin-top: 1rem; }
+.mb-0 { margin-bottom: 0; }
+.form-grid.tight-below { margin-bottom: 1rem; }
+.nowrap { white-space: nowrap; }
+.qr-box { background: #fff; border-radius: 12px; padding: 12px; width: fit-content; }
+
+/* ---- raised cards, headline, state dots ---- */
+
+/* Any card, tile or box inside a panel: one step lighter than the
+   panel it sits on, with its own smaller shadow. */
+.card {
+  background: var(--raised);
+  border: 1px solid var(--raised-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-raised);
+  padding: 1rem;
+}
+
+/* The one sentence every screen opens with, so somebody who reads
+   nothing else has still been told how things stand. The dot carries
+   the colour; the card itself stays a plain panel with no tinted
+   background, border colour or icon badge. */
+.headline { display: flex; align-items: center; gap: 1rem; padding: 1.125rem 1.375rem; }
+.headline .dot { flex: none; width: 18px; height: 18px; border-radius: 50%; background: var(--state-quiet); }
+.headline .dot.calm { background: var(--state-calm); }
+.headline .dot.good { background: var(--state-good); }
+.headline .dot.busy { background: var(--state-busy); }
+.headline .dot.bad { background: var(--state-bad); }
+/* The one place a state takes the highlight colour: something is
+   waiting for you to do it. */
+.headline .dot.waiting { background: var(--accent); }
+.headline p { margin: 0; font-size: 1.375rem; font-weight: 600; line-height: 1.3; }
+/* A page that only explains what it is has no news to colour, so it
+   takes its own icon in a raised circle and a normal-sized sentence. A
+   blue dot there would read as "restart needed". */
+.headline.plain p { font-size: 1.0625rem; font-weight: 400; }
+.headline .head-icon {
+  flex: none; display: grid; place-items: center;
+  width: 2.25rem; height: 2.25rem; border-radius: 50%;
+  background: var(--raised); border: 1px solid var(--raised-border);
+  box-shadow: var(--shadow-raised); color: var(--muted-fg);
+}
+.headline .head-icon svg { width: 18px; height: 18px; }
+/* New words fade over the old ones rather than appearing abruptly. */
+.headline p.fading { animation: head-fade 0.6s ease; }
+@keyframes head-fade { from { opacity: 0; } to { opacity: 1; } }
+
+/* ---- switches, checkboxes and radios ---- */
+
+/* Anything that turns a setting on or off is a switch, and it applies
+   straight away. The label sits beside it and is part of the target. */
+.switch {
+  display: inline-flex; align-items: center; gap: 0.625rem;
+  cursor: pointer; min-height: 2.75rem;
+}
+/* One per line, where several sit under each other. */
+.switch.block { display: flex; }
+.switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+.switch .track {
+  flex: none; width: 2.75rem; height: 1.5rem;
+  background: var(--border); border: 1px solid var(--panel-border);
+  border-radius: 999px; position: relative; transition: background 0.15s ease;
+}
+.switch .track::after {
+  content: ""; position: absolute; top: 2px; left: 2px;
+  width: 1.125rem; height: 1.125rem; border-radius: 50%;
+  background: #fff; box-shadow: 0 1px 2px rgba(24,24,40,.3);
+  transition: transform 0.15s ease;
+}
+.switch input:checked + .track { background: var(--accent); }
+.switch input:checked + .track::after { transform: translateX(1.25rem); }
+.switch input:focus-visible + .track { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Our own boxes, never the browser's: that one is small, flat and a
+   glaring white on a dark panel. These sit sunk like a typing box, and
+   a chosen one fills with the highlight colour and shows a dark tick,
+   so it stays readable whatever colour is picked. */
+input[type="checkbox"], input[type="radio"] {
+  appearance: none; margin: 0; flex: none; cursor: pointer;
+  width: 1.375rem; height: 1.375rem; display: grid; place-items: center;
+  background: var(--field); border: 1px solid var(--field-border);
+  box-shadow: var(--shadow-field);
+}
+input[type="checkbox"] { border-radius: 7px; }
+input[type="radio"] { border-radius: 50%; }
+input[type="checkbox"]:checked, input[type="radio"]:checked {
+  background: var(--accent); border-color: var(--accent); box-shadow: none;
+}
+input[type="checkbox"]:checked::after {
+  content: ""; width: 10px; height: 6px;
+  border-left: 2.5px solid var(--on-accent); border-bottom: 2.5px solid var(--on-accent);
+  transform: translateY(-1px) rotate(-45deg);
+}
+input[type="radio"]:checked::after {
+  content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--on-accent);
+}
+
+/* ---- our own dropdown ---- */
+
+.picker { position: relative; }
+/* The real select stays in the page for forms and screen readers, but
+   is taken out of sight: display:none would take it out of the form
+   too. */
+.picker-native { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
+.picker-box {
+  font: inherit; color: var(--fg); cursor: pointer;
+  display: flex; align-items: center; gap: 0.75rem; width: 100%;
+  background: var(--field); border: 1px solid var(--field-border);
+  border-radius: var(--radius); box-shadow: var(--shadow-field);
+  padding: 0.5625rem 0.875rem; text-align: left;
+}
+.picker-box:hover { border-color: var(--accent); }
+.picker-value { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.picker-chevron { width: 18px; height: 18px; flex: none; color: var(--muted-fg); }
+.picker-box[aria-expanded="true"] .picker-chevron { transform: rotate(180deg); }
+/* The open list is a raised card just under the box. */
+.picker-list {
+  position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 40;
+  max-height: 16rem; overflow-y: auto; padding: 5px;
+  background: var(--raised); border: 1px solid var(--raised-border);
+  border-radius: var(--radius); box-shadow: var(--shadow-raised);
+}
+.picker-option {
+  padding: 0.5rem 0.75rem; border-radius: calc(var(--radius) - 5px); cursor: pointer;
+}
+.picker-option:hover { background: var(--muted); }
+.picker-option.chosen { background: var(--accent); color: var(--on-accent); font-weight: 600; }
+.picker-option:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+/* ---- the highlight colour picker ---- */
+
+.swatches { display: flex; flex-wrap: wrap; gap: 0.625rem; }
+.swatch {
+  width: 28px; height: 28px; flex: none; padding: 0; cursor: pointer;
+  border-radius: 50%; border: 1px solid rgba(255,255,255,.25);
+  background: #fbc711;
+  box-shadow: var(--shadow-raised);
+}
+.swatch:hover { transform: translateY(-2px); }
+/* The one in use is ringed in the page colour then the text colour, so
+   the ring reads against the swatch whatever colour it is. */
+.swatch.chosen { box-shadow: 0 0 0 3px var(--panel), 0 0 0 5px var(--fg); }
+.swatch.accent-red { background: #f34236; }
+.swatch.accent-pink { background: #e8207e; }
+.swatch.accent-purple { background: #b763c5; }
+.swatch.accent-deep_purple { background: #9170c3; }
+.swatch.accent-indigo { background: #7382c9; }
+.swatch.accent-blue { background: #2295f1; }
+.swatch.accent-light_blue { background: #03a8f3; }
+.swatch.accent-cyan { background: #00bcd3; }
+.swatch.accent-teal { background: #019587; }
+.swatch.accent-green { background: #4bae4f; }
+.swatch.accent-light_green { background: #8ac248; }
+.swatch.accent-lime { background: #cbdc38; }
+.swatch.accent-yellow { background: #ffea3a; }
+.swatch.accent-amber { background: #ffc006; }
+.swatch.accent-orange { background: #fe9700; }
+.swatch.accent-deep_orange { background: #ff5721; }
+.swatch.accent-brown { background: #9f857c; }
+.swatch.accent-grey { background: #9e9d9e; }
+.swatch.accent-blue_grey { background: #607c8b; }
+
+/* ---- saving: a glow, not a message ---- */
+
+/* The box's own edge glows for a moment and then goes back to normal.
+   No tick, no word, no banner, and nothing that pushes the page about. */
+@keyframes saved {
+  0%, 100% { border-color: var(--field-border); box-shadow: var(--shadow-field); }
+  25%, 60% { border-color: var(--accent);
+    box-shadow: var(--shadow-field), 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent); }
+}
+.just-saved { animation: saved 1.6s ease; }
+/* A failure stays until it is put right: a red edge on the box and the
+   server's own words underneath it. */
+.has-error { border-color: var(--danger); }
+.field-error { margin: 0.25rem 0 0; color: var(--danger); font-size: 0.875rem; font-weight: 600; }
+/* The same glow for something that is not a typing box, such as an
+   editor pane or a panel that has just been written. An outline rather
+   than a box-shadow, so whatever shadow the thing already has is left
+   exactly as it was. */
+@keyframes saved-plain {
+  0%, 100% { outline-color: transparent; }
+  25%, 60% { outline-color: var(--accent); }
+}
+.just-saved-plain {
+  outline: 3px solid transparent; outline-offset: 2px;
+  animation: saved-plain 1.6s ease;
+}
+
+/* ---- gentle motion ---- */
+
+/* Quick and quiet, and nothing moves unless something is happening. */
+@keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+#content > .panel, #content > .stack-grid > .panel { animation: rise 0.28s ease-out both; }
+.card { transition: transform 0.15s ease, box-shadow 0.15s ease; }
+.card.clickable:hover { transform: translateY(-2px); }
+
+/* A spinning ring where the thing will appear, never grey skeleton
+   shapes, which look frozen. */
+.spin {
+  width: 36px; height: 36px; border-radius: 50%;
+  border: 4px solid var(--border); border-top-color: var(--accent);
+  animation: spin 1s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .switch .track, .switch .track::after,
+  .card, .icon-btn { transition: none; }
+  .card.clickable:hover { transform: none; }
+  #content > .panel, #content > .stack-grid > .panel,
+  .just-saved, .just-saved-plain, .headline p.fading, .spin { animation: none; }
+}
+
+/* ---- switchable accents (Lightmorphic palette) ---- */
+
+:root[data-accent] {
+  --accent: var(--accent-dark);
+  --accent-hover: var(--accent-hover-dark);
+  --accent-container: var(--accent-container-dark);
+  --on-accent-container: var(--on-accent-container-dark);
+}
+
+:root[data-accent="red"] {
+  --accent-dark: #f34236; --accent-hover-dark: #f4594e;
+  --accent-container-dark: #491410; --on-accent-container-dark: #faaaa5;
+  --on-accent: #350f0c;
+}
+:root[data-accent="pink"] {
+  --accent-dark: #e8207e; --accent-hover-dark: #eb3b8d;
+  --accent-container-dark: #460a26; --on-accent-container-dark: #f59bc5;
+  --on-accent: #1e0410;
+}
+:root[data-accent="purple"] {
+  --accent-dark: #b763c5; --accent-hover-dark: #c076cc;
+  --accent-container-dark: #46114e; --on-accent-container-dark: #d29ddb;
+  --on-accent: #ffffff;
+}
+:root[data-accent="deep_purple"] {
+  --accent-dark: #9170c3; --accent-hover-dark: #9e82ca;
+  --accent-container-dark: #2e1a4d; --on-accent-container-dark: #baa6d9;
+  --on-accent: #ffffff;
+}
+:root[data-accent="indigo"] {
+  --accent-dark: #7382c9; --accent-hover-dark: #8491cf;
+  --accent-container-dark: #1b2451; --on-accent-container-dark: #a8b1dd;
+  --on-accent: #ffffff;
+}
+:root[data-accent="blue"] {
+  --accent-dark: #2295f1; --accent-hover-dark: #3da2f3;
+  --accent-container-dark: #0a2d48; --on-accent-container-dark: #9ccff9;
+  --on-accent: #0a2a43;
+}
+:root[data-accent="light_blue"] {
+  --accent-dark: #03a8f3; --accent-hover-dark: #21b2f4;
+  --accent-container-dark: #013249; --on-accent-container-dark: #8ed8fa;
+  --on-accent: #013953;
+}
+:root[data-accent="cyan"] {
+  --accent-dark: #00bcd3; --accent-hover-dark: #00a9be;
+  --accent-container-dark: #00383f; --on-accent-container-dark: #8ce1eb;
+  --on-accent: #00464e;
+}
+:root[data-accent="teal"] {
+  --accent-dark: #019587; --accent-hover-dark: #1fa295;
+  --accent-container-dark: #002d29; --on-accent-container-dark: #8dcfc9;
+  --on-accent: #00211e;
+}
+:root[data-accent="green"] {
+  --accent-dark: #4bae4f; --accent-hover-dark: #61b864;
+  --accent-container-dark: #173418; --on-accent-container-dark: #aedbb0;
+  --on-accent: #173618;
+}
+:root[data-accent="light_green"] {
+  --accent-dark: #8ac248; --accent-hover-dark: #7caf41;
+  --accent-container-dark: #293a16; --on-accent-container-dark: #cae4ad;
+  --on-accent: #33481b;
+}
+:root[data-accent="lime"] {
+  --accent-dark: #cbdc38; --accent-hover-dark: #b7c632;
+  --accent-container-dark: #3d4211; --on-accent-container-dark: #e8efa5;
+  --on-accent: #575f18;
+}
+:root[data-accent="yellow"] {
+  --accent-dark: #ffea3a; --accent-hover-dark: #e6d334;
+  --accent-container-dark: #4d4611; --on-accent-container-dark: #fff6a6;
+  --on-accent: #6e6519;
+}
+:root[data-accent="amber"] {
+  --accent-dark: #ffc006; --accent-hover-dark: #e6ad05;
+  --accent-container-dark: #4d3a02; --on-accent-container-dark: #ffe38f;
+  --on-accent: #664d02;
+}
+:root[data-accent="orange"] {
+  --accent-dark: #fe9700; --accent-hover-dark: #e58800;
+  --accent-container-dark: #4c2d00; --on-accent-container-dark: #ffd08c;
+  --on-accent: #5e3800;
+}
+:root[data-accent="deep_orange"] {
+  --accent-dark: #ff5721; --accent-hover-dark: #ff6b3c;
+  --accent-container-dark: #4d1a0a; --on-accent-container-dark: #ffb39b;
+  --on-accent: #471809;
+}
+:root[data-accent="brown"] {
+  --accent-dark: #9f857c; --accent-hover-dark: #aa948c;
+  --accent-container-dark: #362721; --on-accent-container-dark: #c3b3ad;
+  --on-accent: #ffffff;
+}
+:root[data-accent="grey"] {
+  --accent-dark: #9e9d9e; --accent-hover-dark: #aaa9aa;
+  --accent-container-dark: #2f2f2f; --on-accent-container-dark: #d3d3d3;
+  --on-accent: #363536;
+}
+:root[data-accent="blue_grey"] {
+  --accent-dark: #607c8b; --accent-hover-dark: #738c99;
+  --accent-container-dark: #1d252a; --on-accent-container-dark: #b7c4cb;
+  --on-accent: #000000;
+}

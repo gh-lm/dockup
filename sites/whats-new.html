@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>What's new - Dockup</title>
+<meta name="description" content="Every Dockup release and what changed in it.">
+<link rel="canonical" href="https://dockup.lightmorphic.com/whats-new.html">
+<link rel="icon" href="dockup.svg" type="image/svg+xml">
+<meta property="og:title" content="What's new - Dockup">
+<meta property="og:description" content="Every Dockup release and what changed in it.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://dockup.lightmorphic.com/whats-new.html">
+<meta property="og:image" content="https://dockup.lightmorphic.com/social-card.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="What's new - Dockup">
+<meta name="twitter:description" content="Every Dockup release and what changed in it.">
+<meta name="twitter:image" content="https://dockup.lightmorphic.com/social-card.png">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://apps.lightmorphic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://apps.lightmorphic.com; font-src 'self'; connect-src 'self' https://apps.lightmorphic.com; form-action 'none'; base-uri 'none'; object-src 'none'; upgrade-insecure-requests">
+<link rel="stylesheet" href="legal.css">
+</head>
+<body>
+<nav class="topnav" aria-label="Main">
+  <div class="topnav-inner">
+    <a class="topnav-brand" href="index.html"><svg width="30" height="30" viewBox="0 0 48 48" aria-hidden="true"><rect width="48" height="48" rx="10" fill="#FBC711"/><rect x="7" y="26" width="15" height="15" rx="3" fill="#ffffff"/><rect x="26" y="26" width="15" height="15" rx="3" fill="#fff"/><rect x="16.5" y="7" width="15" height="15" rx="3" fill="#fff"/></svg><span>Dockup</span></a>
+    <ul class="topnav-links">
+      <li><a href="index.html#features">Features</a></li>
+      <li><a href="index.html#install">Install</a></li>
+      <li><a href="index.html#faq">Questions</a></li>
+    </ul>
+    <div id="all-apps"></div>
+  </div>
+</nav>
+<header class="page-head">
+  <div class="wrap">
+    <h1>What's new</h1>
+    <p class="updated">Every release so far, newest first.</p>
+  </div>
+</header>
+<main class="wrap">
+
+  <div class="doc-layout">
+    <nav class="doc-index" aria-label="Contents">
+      <h2>Contents</h2>
+      <ul>
+        <li><a href="#1-2-0-2026-10-19">1.2.0 - 2026-10-19</a></li>
+        <li><a href="#1-1-0-2026-09-30">1.1.0 - 2026-09-30</a></li>
+        <li><a href="#1-0-0-2026-08-12">1.0.0 - 2026-08-12</a></li>
+      </ul>
+    </nav>
+    <div class="doc-body">
+<section class="panel doc">
+<p>Three releases, each listing the changes that matter most rather than every small fix along the way.</p>
+</section>
+<section class="panel doc" id="1-2-0-2026-10-19">
+<h2>1.2.0 - 2026-10-19</h2>
+<p>The release that makes Dockup safe to hand to somebody else, and a pleasure to use.</p>
+<ul><li>
+<strong>Dockup is one of its own stacks.</strong> It lives in the stacks folder beside
+ everything it manages, shows up in its own list, and is opened, read and
+ updated exactly like any other container. The one thing a container cannot
+ do to itself, replacing its own container, is handed to a short-lived
+ helper, so the page goes quiet for a few seconds and comes back on its own
+</li><li>
+<strong>Dumps before a backup.</strong> A database copied while it is being written to
+ often will not restore. Dockup can now ask an application for a clean copy
+ of itself, early in the morning, ahead of whatever copies the machine
+ overnight, and writes a status file saying when each one was made and
+ whether it worked. A dump that fails never replaces a good one
+</li><li>
+<strong>Backup and restore you can trust.</strong> A backup never contains the earlier
+ backups, refuses to be kept if it suddenly doubles in size, and only one
+ runs at a time. Restore refuses while stacks are running, swaps each stack
+ folder instead of deleting it, keeps the old one beside it, never touches
+ Dockup&#x27;s own folder, and asks again if the backup had to leave files out.
+ Export streams from disk instead of holding everything in memory
+</li><li>
+<strong>Safer by default.</strong> Dockup will not start with a missing, short or
+ example secret key, and says why in one line. It cannot be stopped, taken
+ down or deleted from its own screen. A backup retention of zero can no
+ longer delete every backup. Settings that are numbers are checked when
+ saved, and a mistake is shown under the box it belongs to
+</li><li>
+<strong>Stacks stop asking to be updated for ever.</strong> On a stack with more than
+ one service, Dockup compared each service against another service&#x27;s image.
+ Each service is now compared with its own
+</li><li>
+<strong>A new look, from the first page to the last.</strong> A charcoal page with
+ panels that stand clear of it, every screen opening with one plain
+ sentence about how things stand, the label on a button appearing as a small
+ pill, switches and our own dropdowns instead of the browser&#x27;s, tables as
+ raised rows, a two-panel sign-in page, and a colour picker made of the
+ palette itself. Settings save themselves and the box glows briefly. There
+ are no pop-up messages, no ticks and no Save button
+</li><li>
+<strong>Anything that cannot be undone asks twice.</strong> The first click fills the
+ button, a second within three seconds does it
+</li><li>
+Installation is the same on any server: a compose file with an obvious
+ secret key to replace, and nothing in it that belongs to one machine
+</li></ul>
+</section>
+<section class="panel doc" id="1-1-0-2026-09-30">
+<h2>1.1.0 - 2026-09-30</h2>
+<p>The release that turns a stack editor into something you can run a home lab from.</p>
+<ul><li>
+<strong>Per-stack backup and restore, including the real data.</strong> Bind-mounted
+ folders and named volumes are archived with the stack&#x27;s compose file and
+ settings, and put back exactly where they came from
+</li><li>
+<strong>Updates.</strong> Dockup checks every stack for a newer image every thirty
+ minutes, marks the ones that have one, and can update them all in one go.
+ Redeploy recreates a stuck stack from its compose file without pulling
+</li><li>
+<strong>A proper editor.</strong> The compose file is edited with live validation, and
+ creating or editing a stack warns when a port is already taken
+</li><li>
+<strong>Adopt what already runs.</strong> Existing compose projects and loose containers
+ come under management in one pass, with nothing restarted, and a first-run
+ prompt offers it
+</li><li>
+<strong>Private registries.</strong> Sign-in details are entered once in Settings,
+ stored encrypted, and used by every pull
+</li><li>
+<strong>An optional helper on the machine itself</strong> for checking and applying
+ operating system updates and for switching Tailscale Serve on a stack&#x27;s
+ ports, installed from Settings in one click
+</li><li>
+<strong>Archive instead of delete.</strong> A stack with nothing running can be put
+ away with its configuration kept, or removed for good with its images
+</li><li>
+<strong>Hardened container.</strong> It runs as an ordinary user, drops every privilege
+ it does not need, binds to the local machine only, and keys its login
+ lockout on the real connecting address rather than one a client can invent
+</li><li>
+Every screen works on a phone, with buttons that grow to be easy to tap
+</li></ul>
+</section>
+<section class="panel doc" id="1-0-0-2026-08-12">
+<h2>1.0.0 - 2026-08-12</h2>
+<p>The first release: one window for every stack on one machine.</p>
+<ul><li>
+A dashboard of stacks, a compose file editor, and a converter from a
+ <code>docker run</code> command to a compose file
+</li><li>
+Start, stop, restart, update and delete for each stack, with a
+ confirmation before anything destructive
+</li><li>
+Live logs with errors and warnings picked out, and a terminal inside any
+ container
+</li><li>
+Cleaning up unused images, containers, networks and build cache, one at a
+ time or together, with the volumes that would go shown first
+</li><li>
+A running activity log, and optional email when something breaks
+</li><li>
+A real sign-in: a signed session cookie, a lockout after repeated failures,
+ and optional two-factor codes
+</li><li>
+Settings with encrypted secrets and a button to test the email setup
+</li><li>
+Daily backups of Dockup&#x27;s own settings and history, a restore that can
+ itself be undone, and a download of everything
+</li><li>
+Installable as an app from the browser
+</li></ul>
+</section>
+    </div>
+  </div>
+
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-inner">
+
+    <div class="foot-brand">
+      <a class="foot-lockup" href="index.html"><svg viewBox="0 0 48 48" width="26" height="26" aria-hidden="true"><rect width="48" height="48" rx="10" fill="#FBC711"/><rect x="7" y="26" width="15" height="15" rx="3" fill="#ffffff"/><rect x="26" y="26" width="15" height="15" rx="3" fill="#fff"/><rect x="16.5" y="7" width="15" height="15" rx="3" fill="#fff"/></svg>Dockup</a>
+      <p class="foot-tagline">A self-hosted Docker Compose stack manager for home labs - every stack,
+      its logs and its terminal in one window, with a real login and two-factor. Made by
+      <a href="https://lightmorphic.com">Lightmorphic</a> and given away under the GPL.</p>
+      <p class="foot-note">No cookies and no tracking. The only thing loaded from anywhere else is
+      the Lightmorphic app launcher in the menu bar.</p>
+    </div>
+
+    <nav class="foot-nav foot-mid" aria-label="The project">
+      <p class="foot-nav-title">The project</p>
+      <ul class="foot-nav-links">
+        <li><a href="whats-new.html">What's new</a></li>
+        <li><a href="security.html">Security</a></li>
+        <li><a href="licence.html">Licence</a></li>
+      </ul>
+    </nav>
+
+    <nav class="foot-nav foot-end" aria-label="Pages">
+      <p class="foot-nav-title">Pages</p>
+      <ul class="foot-nav-links">
+        <li><a href="index.html#features">Features</a></li>
+        <li><a href="index.html#install">Install</a></li>
+        <li><a href="index.html#faq">Questions</a></li>
+        <li><a href="documentation.html">Documentation</a></li>
+        <li><a href="runbook.html">Runbook</a></li>
+      </ul>
+    </nav>
+
+  </div>
+</footer>
+
+<div class="wrap">
+<div class="oss-bar">
+  <div class="marks">
+    <a href="https://github.com/gh-lm/dockup" target="_blank" rel="noopener noreferrer"
+       aria-label="Dockup on GitHub (opens in a new tab)">
+      <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+    </a>
+    <a href="https://opensource.org" target="_blank" rel="noopener noreferrer"
+       aria-label="Open Source Initiative (opens in a new tab)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="5" r="2.6"/>
+        <circle cx="5.2" cy="17" r="2.6"/>
+        <circle cx="18.8" cy="17" r="2.6"/>
+        <path d="M10.7 7.3 6.5 14.7M13.3 7.3l4.2 7.4M7.8 17h8.4"/>
+      </svg>
+    </a>
+  </div>
+  <nav aria-label="Source code">
+    <a href="https://github.com/gh-lm/dockup" target="_blank" rel="noopener noreferrer" aria-label="Repository on GitHub (opens in a new tab)">Repository</a>
+    <a href="https://github.com/gh-lm/dockup/blob/main/README.md" target="_blank" rel="noopener noreferrer" aria-label="Documentation on GitHub (opens in a new tab)">Documentation</a>
+    <a href="https://github.com/gh-lm/dockup/security/policy" target="_blank" rel="noopener noreferrer" aria-label="Security on GitHub (opens in a new tab)">Security</a>
+    <a href="https://github.com/gh-lm/dockup/blob/main/LICENSE" target="_blank" rel="noopener noreferrer" aria-label="Licence on GitHub (opens in a new tab)">Licence</a>
+    <a href="https://github.com/gh-lm/dockup/blob/main/CHANGELOG.md" target="_blank" rel="noopener noreferrer" aria-label="Changelog on GitHub (opens in a new tab)">Changelog</a>
+    <a href="https://github.com/gh-lm/dockup/issues" target="_blank" rel="noopener noreferrer" aria-label="Issues on GitHub (opens in a new tab)">Issues</a>
+    <a href="https://github.com/gh-lm/dockup/releases" target="_blank" rel="noopener noreferrer" aria-label="Releases on GitHub (opens in a new tab)">Releases</a>
+  </nav>
+</div>
+</div>
+
+<div class="legal">
+  <div class="wrap legal-inner">
+    <p class="legal-text">
+      &copy; Lightmorphic Ltd. Registered in England and Wales, company number 17423646.<br>
+      Registered office: 82A James Carter Road, Mildenhall, IP28 7DE.<br>
+      Page last updated: <time datetime="2026-10-19">19 October 2026</time>.
+    </p>
+    <nav class="legal-links" aria-label="Legal">
+      <a href="privacy.html">Privacy</a>
+      <a href="cookies.html">Cookies</a>
+      <a href="terms.html">Terms</a>
+      <a href="accessibility.html">Accessibility</a>
+      <a href="complaints.html">Complaints</a>
+    </nav>
+  </div>
+</div>
+
+<script src="https://apps.lightmorphic.com/launcher.js" defer></script>
+</body>
+</html>
