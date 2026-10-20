@@ -214,7 +214,9 @@ Copyright Lightmorphic Ltd. Dockup is free software under the **GNU General
 Public License v3.0**, for every version, see [LICENSE](LICENSE). You may use,
 study, change and share it; if you share a changed version, it has to carry
 the same freedoms. What changed in each release is in
-[CHANGELOG.md](CHANGELOG.md).
+[CHANGELOG.md](CHANGELOG.md). To take part, read
+[CONTRIBUTING.md](CONTRIBUTING.md); report security problems as set out in
+[SECURITY.md](SECURITY.md).
 
 Bundled third-party parts: [xterm.js](https://xtermjs.org) (MIT) for the
 terminal and Trindle Sans (SIL Open Font Licence) for the type. Python
