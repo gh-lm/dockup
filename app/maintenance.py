@@ -14,6 +14,7 @@ import yaml
 from flask import Blueprint, Response, jsonify, request, stream_with_context
 
 from . import activity, config, envsub, runtime
+from .httputil import json_body
 
 bp = Blueprint("maintenance", __name__, url_prefix="/api/system")
 
@@ -119,18 +120,40 @@ def volume_preview():
     return jsonify({"volumes": [v | _classify(v["name"], declared, projects) for v in vols]})
 
 
+def _remove_shown_volumes(rt, shown) -> str:
+    """Remove the volumes the person was shown, and only those: one that
+    became unused after the list was drawn is not theirs to lose, and one
+    that has since been put back to use is refused by the engine."""
+    unused = {v["name"] for v in rt.dangling_volumes()}
+    removed = 0
+    for name in shown:
+        if isinstance(name, str) and name in unused:
+            rt.remove_volume(name)
+            removed += 1
+    return f"Removed {removed} unused volume{'s' if removed != 1 else ''}"
+
+
 @bp.post("/prune")
 def prune():
-    targets = request.get_json(force=True).get("targets", [])
+    body = json_body()
+    targets = body.get("targets", [])
     unknown = [t for t in targets if t not in runtime.PRUNE_TARGETS]
     if unknown or not targets:
         return jsonify({"error": "Pick at least one valid thing to prune"}), 400
+    shown = body.get("volumes")
+    if "volumes" in targets and not (isinstance(shown, list) and shown):
+        return jsonify({"error": "Volumes are only removed from the list that was shown "
+                                 "first. Reload the page and try again."}), 400
     rt = runtime.current()
     results = {}
     ok = True
     for target in [t for t in SAFE_ORDER if t in targets]:
         try:
-            results[target] = {"ok": True, "message": rt.prune(target)}
+            if target == "volumes":
+                message = _remove_shown_volumes(rt, shown)
+            else:
+                message = rt.prune(target)
+            results[target] = {"ok": True, "message": message}
             activity.log("info", "prune", f"Pruned {target}: {results[target]['message']}")
         except runtime.RuntimeError_ as exc:
             ok = False

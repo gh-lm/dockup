@@ -1,11 +1,13 @@
+# The base image is pinned by digest so every build starts from the same
+# bytes. To take a newer one, change the digest on purpose.
 # ---- Build stage: install Python dependencies ----
-FROM python:3.13-alpine AS build
+FROM python:3.13-alpine@sha256:2d9aefe2fef018a7eb2c13064c89c71929800fd2e5dccdbf52ea5da5bb8d929a AS build
 WORKDIR /app
 COPY requirements.txt .
-RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+RUN pip install --no-cache-dir --require-hashes --prefix=/install -r requirements.txt
 
 # ---- Final stage: only the runtime, no build tooling ----
-FROM python:3.13-alpine
+FROM python:3.13-alpine@sha256:2d9aefe2fef018a7eb2c13064c89c71929800fd2e5dccdbf52ea5da5bb8d929a
 
 # docker-cli + compose plugin talk to whichever socket is mounted
 # - Dockup itself never needs a daemon of its own.

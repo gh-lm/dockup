@@ -4,10 +4,8 @@ __pycache__/
 data/
 .env
 dev-stacks/
-.claude/settings.local.json
-# Local, per-machine compose settings (companion socket, a different
-# port, extra mounts). Keeping them here instead of in compose.yaml is
-# what lets `git pull` - and the in-app update button, which uses
-# `git pull --ff-only` - keep working.
+.claude/
+.prismor/
+# Local, per-machine compose settings (a different port, extra mounts).
 compose.override.yaml
 .publish/

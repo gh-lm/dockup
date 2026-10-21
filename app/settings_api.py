@@ -3,22 +3,25 @@
 from flask import Blueprint, jsonify, request
 
 from . import activity, registries, runtime, settingsvc
+from .httputil import json_body
 
 bp = Blueprint("settings_api", __name__, url_prefix="/api/settings")
 
 
 def _check_numbers(data: dict) -> str:
-    """Settings that are numbers must be sensible numbers. A retention of
-    zero or less used to delete every backup including the one just
-    made, and a word where a number belongs broke the nightly job."""
+    """Settings that are numbers must be sensible numbers, and paths real
+    paths. A retention of zero or less would delete every backup including
+    the one just made, and a word where a number belongs would break the
+    nightly job."""
     limits = {
         "backup.hour": (0, 23, "The backup hour needs to be a whole number from 0 to 23."),
         "predump.hour": (0, 23, "The dump hour needs to be a whole number from 0 to 23."),
         "backup.retention_days": (1, 3650, "Keep backups for a whole number of days, at "
                                            "least 1."),
+        "smtp.port": (1, 65535, "The mail port needs to be a whole number from 1 to 65535."),
     }
     for key, (low, high, message) in limits.items():
-        if key not in data:
+        if key not in data or (key == "smtp.port" and not str(data[key]).strip()):
             continue
         try:
             value = int(str(data[key]).strip())
@@ -26,6 +29,18 @@ def _check_numbers(data: dict) -> str:
             return message
         if not low <= value <= high:
             return message
+    return _check_paths(data)
+
+
+def _check_paths(data: dict) -> str:
+    """The engine socket and the adopt exclusions are folders or files on
+    this machine, so each has to be an absolute path."""
+    socket = str(data.get("runtime.socket", "")).strip()
+    if socket and not socket.startswith("/"):
+        return "The engine socket is a path, starting with a slash."
+    excluded = [p.strip() for p in str(data.get("adopt.exclude_paths", "")).split(",") if p.strip()]
+    if any(not p.startswith("/") for p in excluded):
+        return "Leave-alone folders are paths starting with a slash, separated by commas."
     return ""
 
 
@@ -38,7 +53,7 @@ def get_settings():
 
 @bp.post("")
 def save_settings():
-    data = request.get_json(force=True)
+    data = json_body()
     problem = _check_numbers(data)
     if problem:
         return jsonify({"error": problem}), 400
@@ -60,7 +75,7 @@ def test_smtp():
     # be what gets tested. Blank fields (in particular the password,
     # left blank on purpose to keep the saved one) fall back to the
     # stored value, same as save_settings treats a blank secret.
-    data = request.get_json(force=True) or {}
+    data = json_body()
     keys = ["smtp.host", "smtp.port", "smtp.security", "smtp.username",
             "smtp.password", "smtp.from", "alerts.email_to"]
     override = {k: (data.get(k) or settingsvc.get(k)) for k in keys}
@@ -86,7 +101,7 @@ def test_smtp():
 
 @bp.post("/test-runtime")
 def test_runtime():
-    data = request.get_json(force=True)
+    data = json_body()
     engine = data.get("engine") or settingsvc.get("runtime.engine")
     socket = data.get("socket") or settingsvc.get("runtime.socket")
     from . import config
@@ -109,7 +124,7 @@ def list_registries():
 
 @bp.post("/registries")
 def save_registry():
-    data = request.get_json(force=True) or {}
+    data = json_body()
     try:
         registries.save(data.get("host", ""), data.get("username", ""), data.get("token", ""))
     except ValueError as exc:
@@ -124,7 +139,7 @@ def test_registry():
     """Test what is on screen, like the other test buttons. A blank token
     means "the one already saved for this host", so a saved registry can
     be re-tested without the token ever coming back to the browser."""
-    data = request.get_json(force=True) or {}
+    data = json_body()
     try:
         host = registries.normalise_host(data.get("host", ""))
     except ValueError as exc:

@@ -43,6 +43,8 @@ DEADLINE_MINUTE = 30
 
 STATUS_NAME = "status.json"
 _DEFAULT_TIMEOUT = 20 * 60
+# A dump that grows past this is stopped rather than left to fill the disk.
+_MAX_DUMP_BYTES = 50 * 2**30
 
 _running = threading.Lock()
 
@@ -196,7 +198,8 @@ def _run_one(job: dict, out: Path, limit: int | None = None) -> dict:
             timeout = int(job.get("timeout") or _DEFAULT_TIMEOUT)
             if limit is not None:
                 timeout = max(1, min(timeout, limit))
-            rt.exec_to_file(job["container"], command, f, timeout=timeout)
+            rt.exec_to_file(job["container"], command, f, timeout=timeout,
+                            max_bytes=_MAX_DUMP_BYTES)
     except Exception as exc:
         temp.unlink(missing_ok=True)
         return _failed(name, final, str(exc))
@@ -205,6 +208,7 @@ def _run_one(job: dict, out: Path, limit: int | None = None) -> dict:
         temp.unlink(missing_ok=True)
         return _failed(name, final, "The command produced nothing")
 
+    os.chmod(temp, 0o600)
     os.replace(temp, final)
     return {
         "name": name,
@@ -224,7 +228,6 @@ def _failed(name: str, final: Path, why: str) -> dict:
         entry["kept_previous"] = True
         entry["previous_age"] = _age_words(final)
         entry["size"] = final.stat().st_size
-        entry["sha256"] = _sha256(final)
     else:
         entry["kept_previous"] = False
     return entry
@@ -263,6 +266,7 @@ def run_all(reason="scheduled") -> dict:
         # status file can trust that what it describes is already there.
         temp = out / f".{STATUS_NAME}.partial"
         temp.write_text(json.dumps(status, indent=2) + "\n")
+        os.chmod(temp, 0o600)
         os.replace(temp, out / STATUS_NAME)
 
         failed = [e["name"] for e in entries if not e["ok"]]

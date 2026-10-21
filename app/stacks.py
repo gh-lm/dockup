@@ -16,6 +16,7 @@ import yaml
 from flask import Blueprint, Response, jsonify, request, stream_with_context
 
 from . import activity, composeconv, composegen, config, locks, runtime
+from .httputil import json_body
 
 bp = Blueprint("stacks", __name__, url_prefix="/api")
 
@@ -391,14 +392,50 @@ def _stack_data_paths(name):
     envp = d / ".env"
     env_text = envp.read_text() if envp.exists() else ""
     mounts = stackbackup._parse_mounts(compose_text, env_text)
+    others = None
     result = []
     for m in mounts:
         if m["type"] == "bind":
             m["source"] = os.path.normpath(stackbackup._resolve_bind_source(m["source"], d))
             if not _deletable_bind(m["source"], m["readonly"]):
                 continue
+            if others is None:
+                others = _other_stacks_bind_paths(name)
+            if any(_overlaps(m["source"], other) for other in others):
+                continue
         result.append(m)
     return result
+
+
+def _overlaps(a: str, b: str) -> bool:
+    """Whether one path is the other, or inside it."""
+    return a == b or a.startswith(b.rstrip("/") + "/") or b.startswith(a.rstrip("/") + "/")
+
+
+def _other_stacks_bind_paths(name):
+    """Bind-mounted folders of every other stack. A folder that another
+    stack also mounts is shared, so deleting this stack's data must leave
+    it alone."""
+    from . import stackbackup
+    found = []
+    if not config.STACKS_DIR.exists():
+        return found
+    for other in sorted(config.STACKS_DIR.iterdir()):
+        if other.name == name or other.name.startswith(".") or not other.is_dir():
+            continue
+        cp = next((other / f for f in config.COMPOSE_FILENAMES if (other / f).exists()), None)
+        if cp is None:
+            continue
+        env_file = other / ".env"
+        try:
+            parsed = stackbackup._parse_mounts(
+                cp.read_text(), env_file.read_text() if env_file.exists() else "")
+        except (OSError, ValueError, yaml.YAMLError):
+            continue
+        for m in parsed:
+            if m["type"] == "bind":
+                found.append(os.path.normpath(stackbackup._resolve_bind_source(m["source"], other)))
+    return found
 
 
 # Top-level host paths that are never a stack's own data, however a
@@ -468,7 +505,7 @@ def api_get(name):
 
 @bp.post("/stacks")
 def api_create():
-    data = request.get_json(force=True)
+    data = json_body()
     name = (data.get("name") or "").strip()
     compose_text = data.get("compose") or ""
     try:
@@ -494,7 +531,7 @@ def api_create():
 
 @bp.put("/stacks/<name>")
 def api_save(name):
-    data = request.get_json(force=True)
+    data = json_body()
     try:
         d = stack_dir(name)
     except ValueError as exc:
@@ -622,12 +659,9 @@ def _compose_with_network_fix(rt, name, d, action):
 def _builds_its_own_image(name: str) -> bool:
     """True if any service in this stack is built here rather than fetched.
 
-    Not everything self-hosted comes from a registry. A stack can hold a
-    company's own books, or anything else there is no good reason to publish,
-    and be built on the machine that runs it instead. Update used to go
-    looking for those in a registry and come back with "access denied", and
-    once the compose file was corrected to say `build:`, Update stopped
-    failing but also stopped doing anything.
+    Not everything self-hosted comes from a registry: a stack can be built
+    on the machine that runs it. Update has nothing to pull for those, so it
+    rebuilds them instead of looking for an image that does not exist.
     """
     cp = compose_path(name)
     if not cp.exists():
@@ -1324,7 +1358,7 @@ def _adopt_one(kind, name, workingDir="", configFiles=""):
 def api_adopt():
     """Bring an existing compose project or standalone container under
     Dockup's wing: its compose file lands in the stacks folder."""
-    data = request.get_json(force=True)
+    data = json_body()
     result, error = _adopt_one(
         data.get("kind"), (data.get("name") or "").strip(),
         data.get("workingDir", ""), data.get("configFiles", ""),
@@ -1362,7 +1396,7 @@ def _safe_project(name):
 
 @bp.post("/convert")
 def api_convert():
-    data = request.get_json(force=True)
+    data = json_body()
     try:
         return jsonify({"compose": composeconv.docker_run_to_compose(data.get("command", ""))})
     except ValueError as exc:
@@ -1371,7 +1405,7 @@ def api_convert():
 
 @bp.post("/validate")
 def api_validate():
-    data = request.get_json(force=True)
+    data = json_body()
     compose_text = data.get("compose", "")
     problem = validate_compose(compose_text)
     conflicts = []
@@ -1395,6 +1429,8 @@ def api_stack_backup_run(name):
     from . import stackbackup
     try:
         path = stackbackup.backup_stack(name)
+    except locks.Busy as exc:
+        return jsonify({"error": str(exc)}), 409
     except (ValueError, runtime.RuntimeError_) as exc:
         return jsonify({"error": str(exc)}), 400
     return jsonify({"ok": True, "name": path.name})
@@ -1404,8 +1440,13 @@ def api_stack_backup_run(name):
 def api_stack_backup_restore(name, backup_name):
     from . import stackbackup
     try:
-        message = stackbackup.restore_stack(name, backup_name)
-    except (ValueError, runtime.RuntimeError_) as exc:
+        message = stackbackup.restore_stack(name, backup_name,
+                                            force=bool(json_body().get("force")))
+    except locks.Busy as exc:
+        return jsonify({"error": str(exc)}), 409
+    except stackbackup.NeedsConfirmation as exc:
+        return jsonify({"error": str(exc), "confirm": True}), 409
+    except (ValueError, OSError, tarfile.TarError, runtime.RuntimeError_) as exc:
         return jsonify({"error": str(exc)}), 400
     return jsonify({"ok": True, "message": message})
 

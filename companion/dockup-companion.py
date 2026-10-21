@@ -14,11 +14,13 @@ Talks newline-delimited JSON over a Unix socket. One request per
 connection: read one line, write one line, close.
 """
 
+import hashlib
 import json
 import os
 import re
 import socketserver
 import subprocess
+import tempfile
 
 SOCKET_PATH = "/run/dockup-companion.sock"
 VERSION = "1.0.0"
@@ -95,11 +97,23 @@ def cmd_tailscale_install(_req):
         return {"ok": True, "message": "Tailscale is already installed."}
     # Tailscale's own official installer - one well-known trusted source,
     # no arbitrary URL ever accepted from a request.
-    proc = subprocess.run(["sh", "-c", "curl -fsSL https://tailscale.com/install.sh | sh"],
-                          capture_output=True, text=True, timeout=300)
+    # Downloaded to a private file first rather than piped straight into a
+    # shell, so a failed or empty download runs nothing, and the exact
+    # script that ran can be identified afterwards by its checksum.
+    with tempfile.TemporaryDirectory(prefix="dockup-tailscale-") as tmp:
+        script = os.path.join(tmp, "install.sh")
+        fetch = subprocess.run(["curl", "-fsSL", "--max-time", "60", "-o", script,
+                                "https://tailscale.com/install.sh"],
+                               capture_output=True, text=True, timeout=90)
+        if fetch.returncode != 0 or not os.path.exists(script) or os.path.getsize(script) == 0:
+            return {"ok": False, "error": fetch.stderr.strip()[:800] or "Could not download the installer"}
+        with open(script, "rb") as f:
+            digest = hashlib.sha256(f.read()).hexdigest()
+        proc = subprocess.run(["sh", script], capture_output=True, text=True, timeout=300)
     if proc.returncode != 0:
         return {"ok": False, "error": proc.stderr.strip()[:800] or "Install script failed"}
-    return {"ok": True, "message": "Tailscale installed. Run 'tailscale up' on the host once to authenticate it."}
+    return {"ok": True, "message": "Tailscale installed (installer checksum "
+            f"{digest[:16]}). Run 'tailscale up' on the host once to authenticate it."}
 
 
 def cmd_tailscale_serve_list(_req):

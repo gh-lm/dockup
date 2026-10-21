@@ -255,7 +255,7 @@ class MockRuntime:
 
     _mock_updated = False
 
-    def exec_to_file(self, container, command, out, timeout=1200):
+    def exec_to_file(self, container, command, out, timeout=1200, max_bytes=None):
         out.write(f"(mock) dump of {container} by {' '.join(command)}\n".encode())
 
     def self_recreate_stream(self, compose_host_dir):

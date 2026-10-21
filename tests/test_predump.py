@@ -22,7 +22,7 @@ class FakeRuntime:
     def __init__(self, behaviour):
         self.behaviour = behaviour
 
-    def exec_to_file(self, container, command, out, timeout=1200):
+    def exec_to_file(self, container, command, out, timeout=1200, max_bytes=None):
         what = self.behaviour.get(container, "ok")
         if what == "fail":
             raise runtime.RuntimeError_("the container said no")

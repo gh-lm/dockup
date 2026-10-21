@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.2.0-fbc711?style=flat-square&labelColor=282b34" alt="Version 1.2.0" />
+  <img src="https://img.shields.io/badge/version-1.2.1-fbc711?style=flat-square&labelColor=282b34" alt="Version 1.2.1" />
   <img src="https://img.shields.io/badge/licence-GPL%20v3-7fd99a?style=flat-square&labelColor=282b34" alt="GPL v3" />
   <img src="https://img.shields.io/badge/image-ghcr.io-5eb6ff?style=flat-square&labelColor=282b34" alt="Image on ghcr.io" />
   <img src="https://img.shields.io/badge/lock--in-none-c2c2cc?style=flat-square&labelColor=282b34" alt="No lock-in: every stack stays a plain folder" />
@@ -62,7 +62,8 @@ echo "SECRET_KEY=$(python3 -c 'import secrets;print(secrets.token_urlsafe(48))')
 docker compose up -d
 ```
 
-Open <http://localhost:4000> and create the admin account.
+Open <http://localhost:4000> and create the admin account straight away: until
+an account exists, whoever opens the page first can create it.
 
 The secret key signs your login, so it has to be yours alone. Dockup refuses
 to start while it is missing, short, or still the example value, and tells

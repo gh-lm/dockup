@@ -46,6 +46,7 @@
     <nav class="doc-index" aria-label="Contents">
       <h2>Contents</h2>
       <ul>
+        <li><a href="#1-2-1-2026-10-21">1.2.1 - 2026-10-21</a></li>
         <li><a href="#1-2-0-2026-10-19">1.2.0 - 2026-10-19</a></li>
         <li><a href="#1-1-0-2026-09-30">1.1.0 - 2026-09-30</a></li>
         <li><a href="#1-0-0-2026-08-12">1.0.0 - 2026-08-12</a></li>
@@ -53,7 +54,51 @@
     </nav>
     <div class="doc-body">
 <section class="panel doc">
-<p>Three releases, each listing the changes that matter most rather than every small fix along the way.</p>
+<p>Each release lists the changes that matter most rather than every small fix along the way.</p>
+</section>
+<section class="panel doc" id="1-2-1-2026-10-21">
+<h2>1.2.1 - 2026-10-21</h2>
+<p>Hardening and accessibility, from a second independent review.</p>
+<ul><li>
+<strong>Two-factor secrets are encrypted at rest</strong>, like every other secret.
+ Secrets saved by an earlier version are encrypted the first time Dockup
+ starts
+</li><li>
+<strong>Builds are reproducible.</strong> Every dependency is fixed to an exact version
+ and checked by hash, the base image and the helper image are fixed by
+ digest, and the build workflow&#x27;s actions are fixed to exact commits
+</li><li>
+**The helpers that restart Dockup or install the companion no longer
+ download anything.** They run in a private folder with a name nobody can
+ guess, and the Tailscale installer is downloaded to a file first and its
+ checksum shown
+</li><li>
+<strong>Safer deletes and prunes.</strong> A folder that another stack also mounts is
+ never offered for deletion with a stack&#x27;s data, and unused volumes are
+ removed only from the list that was shown
+</li><li>
+<strong>Restoring one stack&#x27;s backup is safer.</strong> It works out where the data goes
+ from the compose file being restored, refuses system folders and other
+ stacks&#x27; folders, shows the person the list before writing anything, needs
+ the stack stopped, and keeps the old compose file and .env beside the new
+ ones. Backups and restores of one stack no longer run at the same time as
+ anything else touching it
+</li><li>
+<strong>A runaway dump is stopped</strong> instead of filling the disk, and dump files
+ are readable only by their owner
+</li><li>
+<strong>Settings that are paths or ports are checked</strong> when saved, and a request
+ that is not what it should be gets a plain answer instead of an error page
+</li><li>
+<strong>Easier for everyone to use.</strong> Failures are announced to screen readers
+ and stay up long enough to read; tabs, the stack list and the colour
+ choices work from the keyboard; stack names are real links; a stopped stack
+ is grey rather than red and every state is also written in words; the
+ terminal can be left with the keyboard; the highlight colours all keep
+ readable text; and the page title follows the screen
+</li><li>
+The unused service worker is gone
+</li></ul>
 </section>
 <section class="panel doc" id="1-2-0-2026-10-19">
 <h2>1.2.0 - 2026-10-19</h2>
@@ -243,7 +288,7 @@ Installable as an app from the browser
     <p class="legal-text">
       &copy; Lightmorphic Ltd. Registered in England and Wales, company number 17423646.<br>
       Registered office: 82A James Carter Road, Mildenhall, IP28 7DE.<br>
-      Page last updated: <time datetime="2026-10-19">19 October 2026</time>.
+      Page last updated: <time datetime="2026-10-21">21 October 2026</time>.
     </p>
     <nav class="legal-links" aria-label="Legal">
       <a href="privacy.html">Privacy</a>

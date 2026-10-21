@@ -9,7 +9,8 @@ from flask import (Blueprint, jsonify, redirect, render_template, request,
                    session, url_for)
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from . import activity, config, db
+from . import activity, config, crypto, db
+from .httputil import json_body
 
 bp = Blueprint("auth", __name__)
 
@@ -33,6 +34,18 @@ def client_ip():
     # Serve on loopback with no configurable trusted-proxy chain, so
     # the real connecting address is always what matters.
     return request.remote_addr or "?"
+
+
+def _totp_ok(user, code) -> bool:
+    """Check a two-factor code against the stored secret, which is kept
+    encrypted like every other secret."""
+    secret = crypto.decrypt(user["totp_secret"] or "")
+    return bool(secret) and pyotp.TOTP(secret).verify(code, valid_window=1)
+
+
+# A real hash to check against when the username does not exist, so a
+# wrong username takes as long to refuse as a wrong password does.
+_DUMMY_HASH = generate_password_hash(secrets.token_urlsafe(16))
 
 
 def _too_many_failures(ip, username):
@@ -113,7 +126,7 @@ def login():
                              f"Login locked out for '{user['username']}' from {ip}",
                              "Too many wrong two-factor codes in 15 minutes.")
                 error = "Too many failed attempts. Wait 15 minutes and try again."
-            elif user and user["totp_enabled"] and pyotp.TOTP(user["totp_secret"]).verify(code, valid_window=1):
+            elif user and user["totp_enabled"] and _totp_ok(user, code):
                 session.clear()
                 session["uid"] = user["id"]
                 session["csrf"] = secrets.token_urlsafe(32)
@@ -138,6 +151,8 @@ def login():
             else:
                 user = db.get().execute("SELECT * FROM users WHERE username=?",
                                         (username,)).fetchone()
+                if not user:
+                    check_password_hash(_DUMMY_HASH, password)
                 if user and check_password_hash(user["pw_hash"], password):
                     if user["totp_enabled"]:
                         session["pending_uid"] = user["id"]
@@ -167,7 +182,7 @@ def logout():
 @bp.post("/api/account/password")
 def change_password():
     user = current_user()
-    data = request.get_json(force=True)
+    data = json_body()
     if not check_password_hash(user["pw_hash"], data.get("current", "")):
         return jsonify({"error": "Your current password wasn't right."}), 400
     new = data.get("new", "")
@@ -196,13 +211,13 @@ def totp_begin():
 def totp_enable():
     user = current_user()
     secret = session.get("totp_setup_secret")
-    code = (request.get_json(force=True).get("code") or "").replace(" ", "")
+    code = (json_body().get("code") or "").replace(" ", "")
     if not secret or not pyotp.TOTP(secret).verify(code, valid_window=1):
         return jsonify({"error": "That code wasn't right - check your authenticator app."}), 400
     con = db.get()
     with con:
         con.execute("UPDATE users SET totp_secret=?, totp_enabled=1 WHERE id=?",
-                    (secret, user["id"]))
+                    (crypto.encrypt(secret), user["id"]))
     session.pop("totp_setup_secret", None)
     activity.log("info", "auth", "Two-factor authentication switched on")
     return jsonify({"ok": True})
@@ -211,8 +226,8 @@ def totp_enable():
 @bp.post("/api/2fa/disable")
 def totp_disable():
     user = current_user()
-    code = (request.get_json(force=True).get("code") or "").replace(" ", "")
-    if not user["totp_enabled"] or not pyotp.TOTP(user["totp_secret"]).verify(code, valid_window=1):
+    code = (json_body().get("code") or "").replace(" ", "")
+    if not user["totp_enabled"] or not _totp_ok(user, code):
         return jsonify({"error": "That code wasn't right."}), 400
     con = db.get()
     with con:

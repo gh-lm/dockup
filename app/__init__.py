@@ -96,7 +96,7 @@ def create_app():
                 return jsonify({"error": "Not signed in"}), 401
             return redirect(url_for("auth.login"))
         # CSRF: state-changing requests must echo the session token
-        if request.method in ("POST", "PUT", "DELETE") and not request.path.startswith("/ws/"):
+        if request.method in ("POST", "PUT", "PATCH", "DELETE") and not request.path.startswith("/ws/"):
             token = request.headers.get("X-CSRF") or request.form.get("csrf")
             if not token or not hmac.compare_digest(token, session.get("csrf", "")):
                 return jsonify({"error": "Session expired - reload the page"}), 403
@@ -124,7 +124,7 @@ def create_app():
             # itself inside a shadow root).
             f"default-src 'self'; img-src 'self' data: https://apps.lightmorphic.com; "
             f"style-src 'self' 'nonce-{nonce}'; "
-            "script-src 'self' https://apps.lightmorphic.com; connect-src 'self' ws: wss:; "
+            "script-src 'self' https://apps.lightmorphic.com; connect-src 'self'; "
             "base-uri 'self'; frame-ancestors 'none'",
         )
         return resp

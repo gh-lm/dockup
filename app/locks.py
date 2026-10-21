@@ -4,8 +4,8 @@ Dockup runs as a single process with many threads, so a plain in-memory
 set is enough. Two overlapping requests to restart Dockup would each start
 a privileged helper racing on the same `compose up`, a backup running
 while a restore deletes the files it is reading would archive half a
-stack, and a scheduled and a manual backup in the same second used to
-share one partial file name.
+stack, and a scheduled and a manual backup starting together would write
+the same partial file.
 
 Everything here is non-blocking: if something is already running the
 answer is "already running", said plainly, not a queue of requests that

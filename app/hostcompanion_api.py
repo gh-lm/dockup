@@ -11,6 +11,7 @@ from pathlib import Path
 from flask import Blueprint, Response, jsonify, request, stream_with_context
 
 from . import activity, config, hostcompanion, runtime, stacks
+from .httputil import json_body
 
 bp = Blueprint("hostcompanion_api", __name__, url_prefix="/api/hostcompanion")
 
@@ -111,7 +112,7 @@ def api_stack_serve_status(name):
 
 @bp.post("/stacks/<name>/serve")
 def api_stack_serve_toggle(name):
-    data = request.get_json(force=True)
+    data = json_body()
     port = data.get("port")
     on = bool(data.get("on"))
     if not isinstance(port, int) or not (1 <= port <= 65535):

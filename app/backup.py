@@ -20,6 +20,7 @@ from pathlib import Path
 from flask import Blueprint, jsonify, request, send_file
 
 from . import activity, config, db, locks, settingsvc
+from .httputil import json_body
 
 bp = Blueprint("backup", __name__, url_prefix="/api/backup")
 
@@ -284,6 +285,8 @@ def restore_backup(filename: str, force: bool = False) -> str:
 
 
 def _restore_locked(filename: str, force: bool) -> str:
+    if not _BACKUP_FILENAME_RE.match(filename):
+        raise ValueError("That backup file doesn't exist")
     path = (config.BACKUP_DIR / filename).resolve()
     if path.parent != config.BACKUP_DIR.resolve() or not path.exists():
         raise ValueError("That backup file doesn't exist")
@@ -337,6 +340,14 @@ def _restore_locked(filename: str, force: bool) -> str:
                 "would be lost from the folders they were in. Restore anyway only if that is "
                 "acceptable.")
 
+    # The backup's database is placed alongside, never swapped in live, and
+    # is copied before anything is moved so a backup without one cannot
+    # fail the restore half way through.
+    db_copy = None
+    if (staging / "dockup.db").exists():
+        db_copy = config.DATA_DIR / f"restored-{filename.replace('.tar.gz', '')}.sqlite"
+        shutil.copy2(staging / "dockup.db", db_copy)
+
     # keep the current state to one side so a restore is itself reversible
     undo = work / "pre-restore-stacks"
     if undo.exists():
@@ -354,14 +365,12 @@ def _restore_locked(filename: str, force: bool) -> str:
             continue
         shutil.move(str(item), str(config.STACKS_DIR / item.name))
 
-    # database from the backup is placed alongside, never swapped live
-    db_copy = config.DATA_DIR / f"restored-{filename.replace('.tar.gz', '')}.sqlite"
-    shutil.copy2(staging / "dockup.db", db_copy)
     shutil.rmtree(staging, ignore_errors=True)
     activity.log("info", "backup",
                  f"Restored stack files from {filename}",
                  f"The previous stack files were kept at {undo}. "
-                 f"The backup's database copy is at {db_copy} if ever needed. "
+                 + (f"The backup's database copy is at {db_copy} if ever needed. "
+                    if db_copy else "That backup held no database copy. ") +
                  "Restored files belong to the user Dockup runs as.")
     return f"Stack files restored from {filename}. The previous files were kept safe in case you change your mind."
 
@@ -427,7 +436,7 @@ def api_run():
 
 @bp.post("/restore")
 def api_restore():
-    body = request.get_json(force=True)
+    body = json_body()
     name = body.get("name", "")
     try:
         message = restore_backup(name, force=bool(body.get("force")))

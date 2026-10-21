@@ -1,10 +1,8 @@
 """Updating a stack that builds its own image instead of fetching one.
 
-Not everything self-hosted belongs in a registry. A stack can hold a
-company's books and be built on the machine that runs it. Update used to go
-looking for those on Docker Hub and come back with "access denied"; once the
-compose file was corrected to say `build:`, Update stopped failing and also
-stopped doing anything at all.
+Not everything self-hosted belongs in a registry: a stack can be built on the
+machine that runs it. Update has nothing to pull for those, so it fetches the
+source if the folder is a git clone, and rebuilds.
 """
 
 from __future__ import annotations

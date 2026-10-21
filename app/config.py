@@ -49,7 +49,7 @@ COMPOSE_PASSTHROUGH = (
 # Kept in step with the top entry in CHANGELOG.md by hand - one number,
 # one place. tools/build-image.sh reads this same line to tag the
 # published image.
-VERSION = "1.2.0"
+VERSION = "1.2.1"
 
 SESSION_DAYS = 7
 LOGIN_MAX_FAILS = 5

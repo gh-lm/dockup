@@ -61,31 +61,20 @@ def init():
     con = connect()
     with con:
         con.executescript(SCHEMA)
-        _rename_old_activity(con)
+        _encrypt_old_totp_secrets(con)
     con.close()
 
 
-def _rename_old_activity(con):
-    """One-off tidy-up after the rename to Dockup: activity rows written
-    under the old name still say it, so a log going back before the
-    rename reads as though it belongs to a different program. The
-    category those rows are filed under says it too, and the Activity
-    page shows that. Only the app's own name is touched - a stack called after the old name, or a
-    quoted error from Docker, is left exactly as it was, since those are
-    a record of what really happened. Costs one UPDATE on a table with a
-    5000-row cap, and finds nothing on every start after the first."""
-    con.execute(
-        "UPDATE activity SET category = replace(category, 'dockle', 'dockup') "
-        "WHERE category LIKE 'dockle%'")
-    for column in ("message", "detail"):
-        con.execute(
-            f"UPDATE activity SET {column} = replace(replace(replace({column},"
-            f" 'Dockle', 'Dockup'),"
-            f" 'dockle-companion', 'dockup-companion'),"
-            f" 'lightmorphic/dockle', 'lightmorphic/dockup') "
-            f"WHERE {column} LIKE '%Dockle%'"
-            f"   OR {column} LIKE '%dockle-companion%'"
-            f"   OR {column} LIKE '%lightmorphic/dockle%'")
+def _encrypt_old_totp_secrets(con):
+    """Two-factor secrets used to be stored as plain text. Encrypt any that
+    still are; an encrypted one starts with the Fernet marker and is left
+    alone, so this finds nothing on every start after the first."""
+    from . import crypto
+    rows = con.execute("SELECT id, totp_secret FROM users WHERE totp_secret IS NOT NULL "
+                       "AND totp_secret NOT LIKE 'gAAAA%'").fetchall()
+    for row in rows:
+        con.execute("UPDATE users SET totp_secret=? WHERE id=?",
+                    (crypto.encrypt(row["totp_secret"]), row["id"]))
 
 
 def get():

@@ -16,6 +16,7 @@ import signal
 import subprocess
 import tempfile
 import threading
+import time
 
 from . import config, settingsvc
 
@@ -25,7 +26,10 @@ _DOCKER_BIN = shutil.which("docker") or "docker"
 # runs in. Pinned to a release line rather than the floating `latest`,
 # so a changed tag on the registry can't silently swap in something
 # else under a container that mounts host paths as root.
-HELPER_IMAGE = "alpine:3.22"
+# Pinned by digest so every install runs the same helper. Alpine's own busybox
+# provides everything the helpers use, so nothing is downloaded when one runs.
+# To take a newer Alpine, change the digest on purpose.
+HELPER_IMAGE = "alpine:3.22@sha256:5291449c3df73caf6ed85e649dec1b9e818b39a5d8c871e97afc13e9cd5e8fa8"
 
 COMPOSE_ACTIONS = {
     "up": ["up", "-d", "--remove-orphans"],
@@ -259,24 +263,47 @@ class Runtime:
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1,
         )
 
-    def exec_to_file(self, container: str, command: list, out, timeout=1200):
+    def exec_to_file(self, container: str, command: list, out, timeout=1200,
+                     max_bytes=None):
         """Run a command inside a container and stream its output into a
         file. Used for the before-backup dumps, where the application
         writes a consistent copy of itself to stdout and Dockup catches
         it. Streamed rather than captured: these archives can be large
         and holding one in memory to write it straight out again would
-        be a waste at best."""
+        be a waste at best. The error output goes to a scratch file and
+        only its tail is read, and a dump that grows past max_bytes is
+        stopped, so a runaway command cannot fill the disk or the memory."""
         args = [_DOCKER_BIN, "exec", container, *command]
-        try:
-            proc = subprocess.run(args, stdout=out, stderr=subprocess.PIPE,
-                                  timeout=timeout, env=self._env())
-        except FileNotFoundError:
-            raise RuntimeError_("The docker CLI is not installed in the Dockup container")
-        except subprocess.TimeoutExpired:
-            raise RuntimeError_(f"The dump in '{container}' ran past its time limit")
-        if proc.returncode != 0:
-            err = (proc.stderr or b"").decode("utf-8", "replace").strip()
-            raise RuntimeError_(err or f"The dump in '{container}' failed")
+        deadline = time.monotonic() + timeout
+        with tempfile.TemporaryFile() as err_file:
+            try:
+                proc = subprocess.Popen(args, stdout=out, stderr=err_file, env=self._env())
+            except FileNotFoundError:
+                raise RuntimeError_("The docker CLI is not installed in the Dockup container")
+            try:
+                while True:
+                    try:
+                        proc.wait(timeout=1)
+                        break
+                    except subprocess.TimeoutExpired:
+                        pass
+                    if time.monotonic() > deadline:
+                        proc.kill()
+                        proc.wait()
+                        raise RuntimeError_(f"The dump in '{container}' ran past its time limit")
+                    if max_bytes and os.fstat(out.fileno()).st_size > max_bytes:
+                        proc.kill()
+                        proc.wait()
+                        raise RuntimeError_(f"The dump in '{container}' grew past the "
+                                            f"{max_bytes // 2**30} GB limit and was stopped")
+            finally:
+                if proc.poll() is None:
+                    proc.kill()
+            if proc.returncode != 0:
+                err_file.seek(0, os.SEEK_END)
+                err_file.seek(max(0, err_file.tell() - 4096))
+                err = err_file.read().decode("utf-8", "replace").strip()
+                raise RuntimeError_(err or f"The dump in '{container}' failed")
 
     def exec_argv(self, container: str) -> list[str]:
         """argv for an interactive shell in a container, run under a PTY."""
@@ -453,14 +480,14 @@ class Runtime:
             _DOCKER_BIN, "run", "--rm", "--privileged", "--pid=host",
             "-v", "/:/host", "-v", f"{staging_host_dir}:/staging:ro",
             HELPER_IMAGE, "sh", "-c",
-            "apk add --no-cache util-linux-misc >/dev/null && "
-            "mkdir -p /host/tmp/dockup-companion-install && "
-            "cp /staging/dockup-companion.py /staging/dockup-companion.service /staging/install.sh "
-            "/host/tmp/dockup-companion-install/ && "
-            "chmod +x /host/tmp/dockup-companion-install/install.sh && "
-            "nsenter --target 1 --mount --uts --ipc --net --pid -- "
-            "sh /tmp/dockup-companion-install/install.sh && "
-            "rm -rf /host/tmp/dockup-companion-install",
+            # A fresh private folder (mode 700, a name nobody can guess), so
+            # another user on the host cannot pre-create it or swap the
+            # script between the copy and the run.
+            'd=$(mktemp -d /host/tmp/dockup-companion.XXXXXX) && '
+            'cp /staging/dockup-companion.py /staging/dockup-companion.service /staging/install.sh "$d"/ && '
+            'chmod +x "$d/install.sh" && '
+            'nsenter -t 1 -m -u -i -n -p -- sh "${d#/host}/install.sh"; '
+            'status=$?; rm -rf "$d"; exit $status',
         ]
         proc = subprocess.Popen(args, env=self._env(), stdout=subprocess.PIPE,
                                 stderr=subprocess.STDOUT, text=True, bufsize=1)
@@ -479,13 +506,19 @@ class Runtime:
         request carrying it) ends abruptly partway through - expected,
         not a failure. The daemon completes the restart independently
         of whether anything is still reading this output."""
+        compose_file = shlex.quote('/host' + compose_host_path)
+        sock_line = "- /run/dockup-companion.sock:/run/dockup-companion.sock"
+        # The line has to be there afterwards, whether it was just
+        # uncommented or already was. If it is missing altogether, say so
+        # instead of recreating Dockup with nothing changed.
         script = (
-            f"sed -i 's|# - /run/dockup-companion.sock:/run/dockup-companion.sock|"
-            f"- /run/dockup-companion.sock:/run/dockup-companion.sock|' {shlex.quote('/host' + compose_host_path)} && "
-            "apk add --no-cache util-linux-misc >/dev/null && "
-            "nsenter --target 1 --mount --uts --ipc --net --pid -- "
+            f"sed -i 's|# {sock_line}|{sock_line}|' {compose_file} && "
+            f"{{ grep -q '^ *{sock_line}' {compose_file} || "
+            "{ echo 'The companion line is not in the compose file, so nothing was changed.'; "
+            "exit 1; }; } && "
+            "nsenter -t 1 -m -u -i -n -p -- "
             f"sh -c 'cd {shlex.quote(compose_host_dir)} && docker compose config --quiet' && "
-            "nsenter --target 1 --mount --uts --ipc --net --pid -- "
+            "nsenter -t 1 -m -u -i -n -p -- "
             f"sh -c 'cd {shlex.quote(compose_host_dir)} && docker compose up -d'"
         )
         args = [_DOCKER_BIN, "run", "--rm", "--privileged", "--pid=host", "-v", "/:/host",
@@ -505,7 +538,7 @@ class Runtime:
     # host's namespaces as the companion install does.
 
     def _host_nsenter(self, inner_script: str) -> str:
-        return ("nsenter --target 1 --mount --uts --ipc --net --pid -- "
+        return ("nsenter -t 1 -m -u -i -n -p -- "
                 f"sh -c {shlex.quote(inner_script)}")
 
     def self_recreate_stream(self, compose_host_dir: str):
@@ -520,7 +553,6 @@ class Runtime:
         container being replaced, not a failure."""
         d = shlex.quote(compose_host_dir)
         script = " && ".join([
-            "apk add --no-cache util-linux-misc >/dev/null",
             self._host_nsenter(f"cd {d} && docker compose config --quiet"),
             self._host_nsenter(f"cd {d} && docker compose up -d"),
         ])

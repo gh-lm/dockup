@@ -1,0 +1,9 @@
+# Dependencies, as loose as the code allows. requirements.txt is built from
+# this file with exact versions and hashes: see runbook.md, "Updating dependencies".
+Flask>=3.1
+flask-sock>=0.7
+cryptography>=44.0
+pyotp>=2.9
+PyYAML>=6.0
+segno>=1.6
+gunicorn>=23.0

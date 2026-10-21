@@ -149,7 +149,7 @@ function openProgressPanel(title) {
         <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>
       </button>
     </div>
-    <div class="progress-panel-body log-view" id="progressBody"></div>
+    <div class="progress-panel-body log-view" id="progressBody" role="log" aria-live="polite"></div>
   </div>`);
   document.body.appendChild(panel);
   panel.querySelector("#progressClose").addEventListener("click", () => panel.remove());
@@ -182,15 +182,21 @@ function armedAction(btn, run, label, { navigate = true } = {}) {
     btn.dataset.tip = btn.dataset.tipOrig;
     armed = null;
   };
+  let armedAt = 0;
   btn.addEventListener("click", async () => {
     if (btn.disabled) return;
     if (!armed) {
       btn.classList.add("confirming");
       btn.innerHTML = ICONS.tick;
       btn.dataset.tip = `Click again to ${label}`;
+      announce(`Click again to ${label}`, false);
+      armedAt = Date.now();
       armed = setTimeout(standDown, 3000);
       return;
     }
+    // A double-click is one decision, not two: the confirming click has
+    // to be a separate one.
+    if (Date.now() - armedAt < 500) return;
     clearTimeout(armed); armed = null;
     btn.disabled = true;
     try {
@@ -260,6 +266,7 @@ function showTip(target, life = TIP_LIFE) {
   const text = target?.dataset.tip;
   if (!text) return hideTip();
   const b = tipEl();
+  b.classList.remove("danger");
   if (tip.observer) tip.observer.disconnect();
   tip.target = target;
   b.textContent = text;
@@ -293,7 +300,7 @@ function hideTip() {
   if (tip.observer) tip.observer.disconnect();
   tip.observer = null;
   tip.target = null;
-  if (tip.el) tip.el.classList.remove("show");
+  if (tip.el) tip.el.classList.remove("show", "danger");
 }
 
 // It appears once the pointer has rested on the button, so it does not
@@ -321,6 +328,20 @@ document.addEventListener("focusout", (e) => {
   if (target && tip.target === target && !(target._alertUntil > Date.now())) hideTip();
 });
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") hideTip(); });
+
+/* An element that carries a label but nothing else to name it (an icon
+   button) gets that label as its accessible name too, so what a sighted
+   person is told on pointing is what a screen reader reads. */
+function nameTipped(node) {
+  if (node.nodeType !== 1) return;
+  const nameless = n => n.hasAttribute("data-tip") && !n.hasAttribute("aria-label")
+    && !n.hasAttribute("aria-labelledby") && !n.textContent.trim();
+  if (nameless(node)) node.setAttribute("aria-label", node.dataset.tip);
+  node.querySelectorAll("[data-tip]").forEach(n => { if (nameless(n)) n.setAttribute("aria-label", n.dataset.tip); });
+}
+new MutationObserver(list => list.forEach(m => m.addedNodes.forEach(nameTipped)))
+  .observe(document.body, { childList: true, subtree: true });
+nameTipped(document.body);
 document.addEventListener("scroll", () => { if (tip.target) placeTip(); }, true);
 window.addEventListener("resize", () => { if (tip.target) placeTip(); });
 
@@ -369,11 +390,29 @@ function glow(el) {
    element the message is about, with the message in place of its usual
    hover text, which is restored when the alert fades. Never a toast lost
    at the bottom of the page. */
+/* Said aloud as well as shown, so a screen reader hears what the pill says.
+   A failure interrupts (role=alert) and everything else waits its turn. */
+function announce(message, assertive) {
+  const id = assertive ? "liveAlert" : "liveStatus";
+  let box = document.getElementById(id);
+  if (!box) {
+    box = document.createElement("div");
+    box.id = id;
+    box.className = "visually-hidden";
+    box.setAttribute("role", assertive ? "alert" : "status");
+    document.body.appendChild(box);
+  }
+  box.textContent = "";
+  // A change of text, a moment after the empty one, is what gets read.
+  setTimeout(() => { box.textContent = message; }, 50);
+}
+
 function popAlert(el, message, kind = "info", ms = 3500) {
   if (!el) return;
-  // kind (danger/success/warning/info) is accepted so callers stay
-  // self-documenting, but does not change the label's colour: it is the
-  // same dark pill whatever the news, so it reads over anything.
+  announce(message, kind === "danger");
+  // A failure stays up long enough to read, in red; everything else is the
+  // usual dark pill, which reads over anything.
+  if (kind === "danger") ms = Math.max(ms, 10000);
   // Capture the element's resting tooltip (its normal hover text, or "")
   // only on the first call of a sequence, so a caller that changes the
   // resting tooltip mid-flow isn't clobbered back to a stale value when
@@ -383,6 +422,7 @@ function popAlert(el, message, kind = "info", ms = 3500) {
   el._alertUntil = Date.now() + ms;
   // Its own life, not a label's second and a half.
   showTip(el, ms);
+  tipEl().classList.toggle("danger", kind === "danger");
   clearTimeout(el._tipTimer);
   el._tipTimer = setTimeout(() => {
     el.dataset.tip = el._tipRestingValue;
@@ -535,10 +575,17 @@ async function renderVersions() {
 
 /* ---------- router ---------- */
 
+/* A stray % in the address would make decodeURIComponent throw and leave
+   the page blank; the raw text is used instead, and the stack lookup
+   answers "not found" in the usual way. */
+function safeDecode(text) {
+  try { return decodeURIComponent(text); } catch (e) { return text; }
+}
+
 const routes = [
   [/^#?\/?$/, viewDashboard],
   [/^#\/new$/, viewNewStack],
-  [/^#\/stack\/([^/]+)$/, (m) => viewStack(decodeURIComponent(m[1]))],
+  [/^#\/stack\/([^/]+)$/, (m) => viewStack(safeDecode(m[1]))],
   [/^#\/maintenance$/, viewMaintenance],
   [/^#\/activity$/, viewActivity],
   [/^#\/backups$/, viewBackups],
@@ -546,12 +593,24 @@ const routes = [
   [/^#\/help$/, viewHelp],
 ];
 
+/* Which screen is current. A screen that waits on the server and finds
+   this has moved on stops there, so its answer never lands on the page
+   that replaced it. */
+let routeId = 0;
+
 async function route() {
+  routeId++;
   closeLiveSockets();
   hideTip();
   document.querySelectorAll(".topbar-navlink").forEach(a =>
     a.classList.toggle("active", location.hash.startsWith(a.getAttribute("href"))));
   const hash = location.hash || "#/";
+  // Each screen names itself in the tab and to a screen reader.
+  const stackPage = hash.match(/^#\/stack\/([^/]+)$/);
+  const PAGE_TITLES = { "#/new": "New stack", "#/maintenance": "Maintenance", "#/activity": "Activity",
+                        "#/backups": "Backups", "#/settings": "Settings", "#/help": "Help" };
+  document.title = stackPage ? `${safeDecode(stackPage[1])} - Dockup`
+    : PAGE_TITLES[hash] ? `${PAGE_TITLES[hash]} - Dockup` : "Dockup";
   for (const [re, fn] of routes) {
     const m = hash.match(re);
     if (m) { await fn(m); content.focus({ preventScroll: true }); return; }
@@ -633,6 +692,10 @@ function enhanceSelect(sel) {
   sel.parentNode.insertBefore(wrap, sel);
   wrap.appendChild(sel);
   sel.classList.add("picker-native");
+  // The custom box is the control now; the native one stays only to hold
+  // the value, so keyboard focus and screen readers skip it.
+  sel.tabIndex = -1;
+  sel.setAttribute("aria-hidden", "true");
 
   const box = el(`<button type="button" class="picker-box" aria-haspopup="listbox" aria-expanded="false">
     <span class="picker-value"></span>
@@ -701,8 +764,10 @@ function enhanceSelect(sel) {
 /* ---------- views ---------- */
 
 async function viewDashboard() {
+  const mine = routeId;
   content.innerHTML = `<div class="panel-head"><h1>Stacks</h1></div>`;
   await refreshStacks();
+  if (mine !== routeId) return;
   content.appendChild(dashboardHeadline());
 
   content.appendChild(el(`<div class="btn-row dash-actions">
@@ -721,11 +786,12 @@ async function viewDashboard() {
 
   let discovered = { projects: [], standalone: [] };
   try { discovered = await api("/api/discover"); } catch (e) { /* non-fatal */ }
+  if (mine !== routeId) return;
 
   const managed = stacksCache.filter(s => s.managed || s.isSelf);
   const unmanagedCount = discovered.projects.length + discovered.standalone.length;
   if (!managed.length && !unmanagedCount) {
-    content.appendChild(el(`<div class="panel"><h3>Nothing here yet</h3>
+    content.appendChild(el(`<div class="panel"><h3 aria-level="2">Nothing here yet</h3>
       <p>Create your first stack with <strong>New stack</strong>.</p></div>`));
     return;
   }
@@ -733,7 +799,7 @@ async function viewDashboard() {
   const updatable = managed.filter(s => s.updateAvailable);
   if (updatable.length) {
     const panel = el(`<div class="panel"><div class="panel-head mb-0">
-      <h3>${updatable.length} update${updatable.length === 1 ? "" : "s"} available</h3>
+      <h3 aria-level="2">${updatable.length} update${updatable.length === 1 ? "" : "s"} available</h3>
       <span class="hint" data-tip="Pulls the newest image and redeploys each one, one after another">${esc(updatable.map(s => s.name).join(", "))}</span>
       <span class="spacer"></span>
       <button class="btn btn-primary" id="updateAllBtn">Update all</button>
@@ -744,6 +810,7 @@ async function viewDashboard() {
 
   let onboarding = { offerBulkAdopt: false };
   try { onboarding = await api("/api/onboarding"); } catch (e) { /* non-fatal */ }
+  if (mine !== routeId) return;
 
   if (onboarding.offerBulkAdopt && unmanagedCount > 0) {
     content.appendChild(renderAdoptPanel({ firstRun: true, count: unmanagedCount }));
@@ -758,27 +825,20 @@ async function viewDashboard() {
   for (const p of discovered.projects) grid.appendChild(unmanagedCard(p, statusByName[p.name] || "running"));
   for (const c of discovered.standalone) grid.appendChild(standaloneCard(c));
 
-  await renderArchivedSection();
+  await renderArchivedSection(mine);
 }
 
-async function renderArchivedSection() {
+async function renderArchivedSection(mine) {
   let archived = { stacks: [] };
   try { archived = await api("/api/archived"); } catch (e) { /* non-fatal */ }
-  if (!archived.stacks.length) return;
+  if (mine !== routeId || !archived.stacks.length) return;
 
   const panel = el(`<div class="panel">
-    <div class="panel-head"><h3>Archived (${archived.stacks.length})</h3><span class="spacer"></span>
-      <button class="btn" id="archivedToggle">Show</button></div>
-    <div id="archivedBody" class="hidden"></div>
+    <div class="panel-head"><h3 aria-level="2">Archived (${archived.stacks.length})</h3></div>
+    <div id="archivedBody"></div>
   </div>`);
   content.appendChild(panel);
-  const toggle = panel.querySelector("#archivedToggle");
   const body = panel.querySelector("#archivedBody");
-  toggle.addEventListener("click", () => {
-    const showing = !body.classList.contains("hidden");
-    body.classList.toggle("hidden", showing);
-    toggle.textContent = showing ? "Show" : "Hide";
-  });
 
   for (const name of archived.stacks) {
     const row = el(`<div class="check-row archived-row">
@@ -852,7 +912,7 @@ function renderAdoptPanel({ firstRun, count }) {
        setup into the stacks folder so Dockup can manage it - nothing running is restarted or changed.`
     : `Copies each one's setup into the stacks folder so Dockup can manage it - nothing running is restarted.`;
   const panel = el(`<div class="panel">
-    <div class="panel-head"><h3>${esc(heading)}</h3><span class="spacer"></span>
+    <div class="panel-head"><h3 aria-level="2">${esc(heading)}</h3><span class="spacer"></span>
       <button class="btn btn-primary" id="adoptAllBtn">Adopt all</button>
       ${firstRun ? '<button class="btn" id="skipAdoptBtn">Not now</button>' : ""}</div>
     <p class="hint">${blurb} Skip anything another manager (like Arcane) already looks after - running two
@@ -901,12 +961,19 @@ const STATUS_TIPS = {
 // signal rather than a separate shade for each cause). "inactive" (no
 // container at all) is the one exception - not a problem, its own
 // neutral gray.
-const STATUS_DOT_CLASS = { running: "running", update: "update", inactive: "inactive" };
+// A stack that is simply stopped is not a failure, so it is grey like
+// "inactive"; red is kept for the states that mean something is wrong.
+const STATUS_DOT_CLASS = { running: "running", update: "update", inactive: "inactive",
+                           stopped: "inactive", exited: "inactive" };
+// The state in words as well, so it never rests on colour alone.
+const STATUS_WORD = { running: "Running", update: "Update available", warning: "Needs attention",
+                      partial: "Partly running", stopped: "Stopped", exited: "Stopped",
+                      inactive: "Not started" };
 
 function cardDot(status) {
   const cls = STATUS_DOT_CLASS[status] || "";
   const tip = STATUS_TIPS[status] || "Container is down";
-  return `<span class="status-dot ${cls}" data-tip="${esc(tip)}" tabindex="0" aria-label="${esc(tip)}"></span>`;
+  return `<span class="status-dot ${cls}" data-tip="${esc(tip)}" role="img" aria-label="${esc(tip)}"></span>`;
 }
 
 function managedCard(s) {
@@ -927,12 +994,12 @@ function managedCard(s) {
         : `http://${location.hostname}:${port}`)
     : null;
   const inactive = s.status === "inactive";
-  const label = `Open stack ${s.name} - ${dotTip}`;
-  const card = el(`<div class="panel stack-card" role="link" tabindex="0" aria-label="${esc(label)}">
-    <h3><span class="status-dot ${STATUS_DOT_CLASS[effectiveStatus] || ""}" data-tip="${esc(dotTip)}"
-      ${updateReady ? 'role="button"' : ""} tabindex="0" aria-label="${esc(dotTip)}"></span><span class="card-name">${esc(s.name)}</span>${
+  const dotTag = updateReady ? "button" : "span";
+  const card = el(`<div class="panel stack-card">
+    <h3 aria-level="2"><${dotTag} class="status-dot ${STATUS_DOT_CLASS[effectiveStatus] || ""}" data-tip="${esc(dotTip)}"
+      ${updateReady ? 'type="button"' : 'role="img"'} aria-label="${esc(dotTip)}"></${dotTag}><a class="card-name" href="#/stack/${encodeURIComponent(s.name)}">${esc(s.name)}</a>${
       webUrl ? `<a class="icon-btn web-link" href="${esc(webUrl)}" target="_blank" rel="noopener" data-tip="Open web UI" aria-label="Open web UI">${ICONS.external}</a>` : ""}</h3>
-    <span class="hint">${s.containers.length} container${s.containers.length === 1 ? "" : "s"}${port ? ` · port ${port}` : ""}${
+    <span class="hint">${STATUS_WORD[effectiveStatus] || "Stopped"} · ${s.containers.length} container${s.containers.length === 1 ? "" : "s"}${port ? ` · port ${port}` : ""}${
       s.isSelf ? " · this is Dockup" : ""}</span>${
       s.isSelf && !s.managed ? `<p class="note">Dockup's own compose file is at
         <code>${esc(dockupSelfDir || "an unknown folder")}</code>, outside the stacks folder, so it
@@ -948,14 +1015,11 @@ function managedCard(s) {
   // to call stopPropagation() is fragile, so check the actual click target
   // here: a click that began on an interactive child never opens the
   // stack page.
-  const open = (e) => {
-    if (e && e.target.closest('a, button, [role="button"]')) return;
+  // For keyboard and screen reader users the name is a real link; a click
+  // anywhere else on the card is a convenience for the mouse.
+  card.addEventListener("click", e => {
+    if (e.target.closest("a, button")) return;
     location.hash = `#/stack/${encodeURIComponent(s.name)}`;
-  };
-  card.addEventListener("click", open);
-  card.addEventListener("keydown", e => {
-    if (e.target.closest('a, button, [role="button"]')) return;
-    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); }
   });
 
   const webLink = card.querySelector("a.icon-btn.web-link");
@@ -977,10 +1041,6 @@ function managedCard(s) {
       location.hash = `#/stack/${encodeURIComponent(s.name)}`;
     };
     dot.addEventListener("click", runUpdate);
-    dot.addEventListener("keydown", e => {
-      e.stopPropagation();
-      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); runUpdate(e); }
-    });
   }
 
   if (inactive) {
@@ -1021,7 +1081,7 @@ function managedCard(s) {
 function unmanagedCard(p, status) {
   const n = p.containers.length;
   const card = el(`<div class="panel stack-card">
-    <h3>${cardDot(status)}<span class="card-name">${esc(p.name)}</span></h3>
+    <h3 aria-level="2">${cardDot(status)}<span class="card-name">${esc(p.name)}</span></h3>
     <span class="hint">${n} container${n === 1 ? "" : "s"}, not adopted</span>
     <button class="btn btn-block adopt-btn">Adopt</button>
   </div>`);
@@ -1031,7 +1091,7 @@ function unmanagedCard(p, status) {
 
 function standaloneCard(c) {
   const card = el(`<div class="panel stack-card">
-    <h3>${cardDot(c.state)}<span class="card-name">${esc(c.name)}</span></h3>
+    <h3 aria-level="2">${cardDot(c.state)}<span class="card-name">${esc(c.name)}</span></h3>
     <span class="hint">${esc(c.image)}, not adopted</span>
     <button class="btn btn-block adopt-btn">Adopt</button>
   </div>`);
@@ -1079,7 +1139,7 @@ function viewNewStack() {
         <textarea id="envText" spellcheck="false" placeholder="KEY=value"></textarea></div>
       <button class="btn btn-primary" id="createBtn">Create stack</button>
     </div></div>
-    <div class="panel"><h3>Convert a docker run command</h3>
+    <div class="panel"><h3 aria-level="2">Convert a docker run command</h3>
     <p>Paste a <code>docker run …</code> command and it becomes compose YAML in the editor above.</p>
     <div class="form-grid">
       <div class="field"><label for="runCmd">docker run command</label>
@@ -1236,9 +1296,11 @@ async function refreshPortAlerts(name) {
 }
 
 async function viewStack(name) {
+  const mine = routeId;
   let s;
   try { s = await api(`/api/stacks/${encodeURIComponent(name)}`); }
-  catch (e) { content.innerHTML = `<p class="alert alert-danger">! ${esc(e.message)}</p>`; return; }
+  catch (e) { if (mine === routeId) content.innerHTML = `<p class="alert alert-danger">! ${esc(e.message)}</p>`; return; }
+  if (mine !== routeId) return;
   // The sidebar renders from stacksCache, which this fresh per-stack
   // fetch doesn't touch - without this, the sidebar/dashboard dot can
   // sit stale (e.g. still green) while this page's own dot already
@@ -1324,15 +1386,15 @@ async function viewStack(name) {
   });
 
   const tabs = el(`<div class="panel">
-    <div class="tabs" role="tablist">
-      <button data-tab="overview" class="active">Overview</button>
-      <button data-tab="compose">Compose</button>
-      <button data-tab="logs">Logs</button>
-      <button data-tab="terminal">Terminal</button>
-      <button data-tab="backup">Backup</button>
-      <button data-tab="serve">Tailscale</button>
+    <div class="tabs" role="tablist" aria-label="${esc(name)}">
+      <button role="tab" id="tab-overview" data-tab="overview" class="active" aria-selected="true" aria-controls="tabBody">Overview</button>
+      <button role="tab" id="tab-compose" data-tab="compose" aria-selected="false" aria-controls="tabBody" tabindex="-1">Compose</button>
+      <button role="tab" id="tab-logs" data-tab="logs" aria-selected="false" aria-controls="tabBody" tabindex="-1">Logs</button>
+      <button role="tab" id="tab-terminal" data-tab="terminal" aria-selected="false" aria-controls="tabBody" tabindex="-1">Terminal</button>
+      <button role="tab" id="tab-backup" data-tab="backup" aria-selected="false" aria-controls="tabBody" tabindex="-1">Backup</button>
+      <button role="tab" id="tab-serve" data-tab="serve" aria-selected="false" aria-controls="tabBody" tabindex="-1">Tailscale</button>
     </div>
-    <div id="tabBody"></div></div>`);
+    <div id="tabBody" role="tabpanel" aria-labelledby="tab-overview"></div></div>`);
   content.appendChild(tabs);
   const tabBody = tabs.querySelector("#tabBody");
 
@@ -1452,12 +1514,26 @@ async function viewStack(name) {
       const host = el('<div class="term-host"><div class="terminal" id="term"></div></div>');
       tabBody.appendChild(picker);
       tabBody.appendChild(host);
+      tabBody.appendChild(el(`<p class="hint hint-mt">Tab goes to the shell, as in any terminal.
+        Press Ctrl+M to let Tab and Shift+Tab move out of it instead, and Ctrl+M again to go back.</p>`));
       let term, ws;
+      let tabLeaves = false;
       const open = (target) => {
-        if (ws) try { ws.close(); } catch (e) {}
+        // Close the old session quietly: its late "session ended" must not
+        // be written into the new one.
+        if (ws) { ws.onclose = null; try { ws.close(); } catch (e) {} }
+        if (term) term.dispose();
         host.querySelector("#term").innerHTML = "";
         term = new Terminal({ fontSize: 13, convertEol: true, cursorBlink: true,
-          theme: { background: "#101116" } });
+          screenReaderMode: true, theme: { background: "#101116" } });
+        term.attachCustomKeyEventHandler(ev => {
+          if (ev.type === "keydown" && ev.ctrlKey && ev.key.toLowerCase() === "m") {
+            tabLeaves = !tabLeaves;
+            announce(tabLeaves ? "Tab now leaves the terminal" : "Tab now goes to the shell", false);
+            return false;
+          }
+          return !(tabLeaves && ev.key === "Tab");
+        });
         term.open(host.querySelector("#term"));
         ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws/terminal/${encodeURIComponent(target)}`);
         ws.onopen = () => ws.send(`\x00resize:${term.cols}x${term.rows}`);
@@ -1472,7 +1548,7 @@ async function viewStack(name) {
     },
     async backup() {
       tabBody.innerHTML = `<div class="panel-head">
-          <h3>Backups</h3><span class="spacer"></span>
+          <h3 aria-level="2">Backups</h3><span class="spacer"></span>
           <label class="btn" for="bkUploadInput">Upload a backup</label>
           <input type="file" id="bkUploadInput" accept=".gz,.tar.gz" class="visually-hidden">
           <button class="btn btn-primary" id="backupNowBtn">Back up now</button></div>
@@ -1494,19 +1570,36 @@ async function viewStack(name) {
               <button class="btn" data-restore="${esc(b.name)}">Restore</button>
             </td></tr>`).join("")}</tbody></table>`;
         wrap.querySelectorAll("[data-restore]").forEach(btn => {
-          let armed = false;
+          let armed = false, armedAt = 0;
           btn.addEventListener("click", async () => {
             if (!armed) {
-              armed = true; btn.textContent = "Really restore?"; btn.classList.add("btn-danger");
+              armed = true; armedAt = Date.now(); btn.textContent = "Really restore?"; btn.classList.add("btn-danger");
+              announce("Really restore? Click again to confirm.", false);
               setTimeout(() => { armed = false; btn.textContent = "Restore"; btn.classList.remove("btn-danger"); }, 5000);
               return;
             }
+            if (Date.now() - armedAt < 500) return;
             btn.disabled = true;
             try {
-              const res = await api(`/api/stacks/${encodeURIComponent(name)}/backups/${encodeURIComponent(btn.dataset.restore)}/restore`, { method: "POST", body: {} });
+              const res = await api(`/api/stacks/${encodeURIComponent(name)}/backups/${encodeURIComponent(btn.dataset.restore)}/restore`,
+                { method: "POST", body: { force: btn.dataset.force === "1" } });
               popAlert(btn, res.message, "success");
-            } catch (e) { popAlert(btn, e.message, "danger"); }
-            btn.disabled = false; armed = false; btn.textContent = "Restore"; btn.classList.remove("btn-danger");
+              wrap.querySelector(".restore-note")?.remove();
+            } catch (e) {
+              if (e.confirm) {
+                // Say where it would write, and keep the button armed as a
+                // second, deliberate "Restore these folders".
+                wrap.querySelector(".restore-note")?.remove();
+                wrap.appendChild(el(`<p class="alert alert-warning restore-note" role="alert">${esc(e.message)}</p>`));
+                btn.dataset.force = "1";
+                btn.disabled = false; armed = true; armedAt = Date.now();
+                btn.textContent = "Restore these folders"; btn.classList.add("btn-danger");
+                return;
+              }
+              popAlert(btn, e.message, "danger");
+            }
+            btn.disabled = false; armed = false; delete btn.dataset.force;
+            btn.textContent = "Restore"; btn.classList.remove("btn-danger");
           });
         });
       };
@@ -1581,11 +1674,30 @@ async function viewStack(name) {
     },
   };
 
-  tabs.querySelectorAll(".tabs button").forEach(b => b.addEventListener("click", () => {
+  const tabButtons = [...tabs.querySelectorAll(".tabs button")];
+  const selectTab = (b) => {
     closeLiveSockets();
-    tabs.querySelectorAll(".tabs button").forEach(x => x.classList.toggle("active", x === b));
+    tabButtons.forEach(x => {
+      x.classList.toggle("active", x === b);
+      x.setAttribute("aria-selected", String(x === b));
+      x.tabIndex = x === b ? 0 : -1;
+    });
+    tabBody.setAttribute("aria-labelledby", b.id);
     renderTab[b.dataset.tab]();
-  }));
+  };
+  tabButtons.forEach(b => b.addEventListener("click", () => selectTab(b)));
+  // Arrow keys move between tabs, Home and End jump to the ends.
+  tabs.querySelector(".tabs").addEventListener("keydown", e => {
+    const at = tabButtons.indexOf(document.activeElement);
+    if (at < 0) return;
+    const to = { ArrowRight: (at + 1) % tabButtons.length,
+                 ArrowLeft: (at + tabButtons.length - 1) % tabButtons.length,
+                 Home: 0, End: tabButtons.length - 1 }[e.key];
+    if (to === undefined) return;
+    e.preventDefault();
+    tabButtons[to].focus();
+    selectTab(tabButtons[to]);
+  });
   renderTab.overview();
 
   if (pendingStackAction && pendingStackAction.name === name) {
@@ -1636,15 +1748,6 @@ async function waitForSelfRestart(out) {
       const res = await fetch("/health", { cache: "no-store" });
       if (res.ok) {
         appendLog(out, "Back. Reloading the page onto the new version…");
-        // The service worker keeps a copy of the scripts and styles so
-        // the app still opens if the network blips. It is network
-        // first, but every one of those fetches failed while Dockup was
-        // away, so the copy it holds is the version that has just been
-        // replaced. Clear it, or the reload lands straight back on the
-        // old page.
-        try {
-          for (const key of await caches.keys()) await caches.delete(key);
-        } catch (e) { /* no cache storage here - nothing to clear */ }
         await new Promise(r => setTimeout(r, 800));
         location.reload();
         return true;
@@ -1725,7 +1828,7 @@ const PRUNE_INFO = [
   ["networks", "Unused networks", "Removes networks no container is attached to."],
   ["buildcache", "Build cache", "Clears layers cached from image builds."],
   ["volumes", "Unused volumes", "The only one that can lose data. \u201cUnused\u201d means no container is using it " +
-    "<em>right now</em> \u2014 which also describes every volume belonging to a stack you have merely stopped. " +
+    "<em>right now</em>, which also describes every volume belonging to a stack you have merely stopped. " +
     "Everything else on this page only removes things Docker can rebuild; this removes real data, permanently. " +
     "Dockup lists each volume and whose it is before anything is deleted."],
 ];
@@ -1868,7 +1971,7 @@ async function viewMaintenance() {
       <div class="table-wrap" id="dfWrap"><p class="hint">Loading…</p></div></div>
     <div class="panel"><div class="panel-head"><h2>Prune</h2>
       <span class="spacer"></span><button class="btn btn-primary" id="pruneAll">Prune everything</button></div>
-      <p>Each cleans one kind of leftover. <strong>Prune everything</strong> runs the safe four together \u2014
+      <p>Each cleans one kind of leftover. <strong>Prune everything</strong> runs the safe four together:
       images, containers, networks and build cache are all rebuildable, so pruning them costs you nothing but
       a slower next build. Volumes hold real data and are never included; they stay a separate, deliberate step.</p>
       <div class="prune-grid" id="pruneGrid"></div></div>`;
@@ -1886,12 +1989,13 @@ async function viewMaintenance() {
 
   const grid = document.getElementById("pruneGrid");
   for (const [key, title, blurb] of PRUNE_INFO) {
-    const card = el(`<div class="panel prune-card"><h3>${title}</h3>
+    const card = el(`<div class="panel prune-card"><h3 aria-level="2">${title}</h3>
       <p class="hint">${blurb}</p>
       <button class="btn ${key === "volumes" ? "btn-danger" : ""}" data-target="${key}">Prune ${key === "buildcache" ? "cache" : key}</button>
       <div class="prune-result" role="status"></div></div>`);
     const btn = card.querySelector("button");
     const result = card.querySelector(".prune-result");
+    let shownVolumes = [];
     btn.addEventListener("click", async () => {
       if (key === "volumes") {
         try {
@@ -1899,6 +2003,7 @@ async function viewMaintenance() {
           if (!prev.volumes.length) { result.textContent = "No unused volumes."; result.className = "prune-result ok"; return; }
           if (!card.dataset.armed) {
             card.dataset.armed = "1";
+            shownVolumes = prev.volumes.map(v => v.name);
             result.className = "prune-result bad";
             const order = { "in-use": 0, superseded: 1, orphaned: 2 };
             const rows = [...prev.volumes].sort((a, b) => order[a.verdict] - order[b.verdict])
@@ -1924,7 +2029,8 @@ async function viewMaintenance() {
       }
       btn.disabled = true; result.textContent = "Working…"; result.className = "prune-result";
       try {
-        const res = await api("/api/system/prune", { method: "POST", body: { targets: [key] } });
+        const res = await api("/api/system/prune", { method: "POST",
+          body: key === "volumes" ? { targets: [key], volumes: shownVolumes } : { targets: [key] } });
         const r = res.results[key];
         result.textContent = (r.ok ? "✓ " : "! ") + r.message;
         result.className = "prune-result " + (r.ok ? "ok" : "bad");
@@ -2004,10 +2110,12 @@ async function viewBackups() {
           <button class="btn" data-restore="${esc(b.name)}">Restore</button>
         </td></tr>`).join("")}</tbody></table>`;
     wrap.querySelectorAll("[data-restore]").forEach(btn => {
-      let armed = false;
+      let armed = false, armedAt = 0;
       btn.addEventListener("click", async () => {
-        if (!armed) { armed = true; btn.textContent = "Really restore?"; btn.classList.add("btn-danger");
+        if (!armed) { armed = true; armedAt = Date.now(); btn.textContent = "Really restore?"; btn.classList.add("btn-danger");
+          announce("Really restore? Click again to confirm.", false);
           setTimeout(() => { armed = false; btn.textContent = "Restore"; btn.classList.remove("btn-danger"); }, 5000); return; }
+        if (Date.now() - armedAt < 500) return;
         btn.disabled = true;
         try {
           const res = await api("/api/backup/restore", { method: "POST",
@@ -2051,8 +2159,10 @@ const ACCENTS = ["", "red", "pink", "purple", "deep_purple", "indigo", "blue", "
   "deep_orange", "brown", "grey", "blue_grey"];
 
 async function viewSettings() {
+  const mine = routeId;
   let s;
-  try { s = await api("/api/settings"); } catch (e) { content.innerHTML = `<p class="alert alert-danger">! ${esc(e.message)}</p>`; return; }
+  try { s = await api("/api/settings"); } catch (e) { if (mine === routeId) content.innerHTML = `<p class="alert alert-danger">! ${esc(e.message)}</p>`; return; }
+  if (mine !== routeId) return;
   content.innerHTML = `<h1>Settings</h1>
     ${s._smtp_ready
       ? headlineHtml("Everything about this copy of Dockup: your account, email alerts and the host companion.")
@@ -2403,7 +2513,7 @@ async function renderHostCompanionPanel() {
   const ts = status.tailscale || {};
   body.innerHTML = `<div class="form-grid">
     <div>
-      <h3>Host OS updates</h3>
+      <h3 aria-level="2">Host OS updates</h3>
       <p class="hint">${esc(os.name || "Unknown OS")}${os.supported ? "" : " - not Debian/Ubuntu, updates aren't available here"}</p>
       ${os.supported ? `<div class="btn-row align-center">
         <button class="btn btn-steady" id="osCheckBtn">Check for updates</button>
@@ -2411,7 +2521,7 @@ async function renderHostCompanionPanel() {
         <span class="hint" id="osResult"></span></div>` : ""}
     </div>
     <div>
-      <h3>Tailscale</h3>
+      <h3 aria-level="2">Tailscale</h3>
       ${!ts.installed
         ? '<p class="hint">Not installed on this host.</p><button class="btn" id="tsInstallBtn">Install Tailscale</button>'
         : `<p class="hint">${ts.running ? "✓ Running" : "Installed, not running"}${ts.dnsName ? ` - <code>${esc(ts.dnsName)}</code>` : ""}</p>`}
@@ -2539,6 +2649,8 @@ function renderAccentSwatches(sel) {
   if (!box || !sel) return;
   const label = (a) => (a === "" ? "Brand yellow (default)" : a.replace("_", " "));
   box.innerHTML = "";
+  sel.tabIndex = -1;
+  sel.setAttribute("aria-hidden", "true");
   [...sel.options].forEach((o, i) => {
     const sw = el(`<button type="button" class="swatch${o.value ? ` accent-${o.value}` : ""}"
       role="radio" aria-checked="false" data-tip="${esc(label(o.value))}"
@@ -2556,9 +2668,24 @@ function renderAccentSwatches(sel) {
       const on = i === sel.selectedIndex;
       sw.classList.toggle("chosen", on);
       sw.setAttribute("aria-checked", String(on));
+      sw.tabIndex = on ? 0 : -1;
     });
     name.textContent = label(sel.value);
   }
+  // One tab stop for the whole row; arrow keys move through the colours,
+  // as they do through any group of radio buttons.
+  box.addEventListener("keydown", (e) => {
+    const swatches = [...box.children];
+    const at = swatches.indexOf(document.activeElement);
+    if (at < 0) return;
+    const to = { ArrowRight: at + 1, ArrowDown: at + 1, ArrowLeft: at - 1, ArrowUp: at - 1,
+                 Home: 0, End: swatches.length - 1 }[e.key];
+    if (to === undefined) return;
+    e.preventDefault();
+    const next = swatches[(to + swatches.length) % swatches.length];
+    next.focus();
+    next.click();
+  });
   sel.addEventListener("change", paint);
   paint();
 }
@@ -2566,17 +2693,24 @@ function renderAccentSwatches(sel) {
 function applyAccent(name) {
   if (name) document.documentElement.dataset.accent = name;
   else delete document.documentElement.dataset.accent;
-  localStorage.setItem("dockup-accent", name || "");
+  try { localStorage.setItem("dockup-accent", name || ""); } catch (e) { /* storage blocked: the choice lasts until reload */ }
 }
 
 /* ---------- boot ---------- */
 
 window.addEventListener("hashchange", route);
-applyAccent(localStorage.getItem("dockup-accent") || "");
+applyAccent((() => { try { return localStorage.getItem("dockup-accent") || ""; } catch (e) { return ""; } })());
 refreshStacks().then(route);
 renderVersions();
 setInterval(() => { if ((location.hash || "#/") === "#/") refreshStacks(); }, 15000);
 setInterval(renderVersions, 60000);
 initHostPowerButtons();
 
-if ("serviceWorker" in navigator) navigator.serviceWorker.register("/static/sw.js");
+/* Earlier versions registered a service worker whose scope never covered the
+   app, so it did nothing. Take any such registration, and its copies, away. */
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.getRegistrations()
+    .then(list => list.forEach(r => r.unregister()))
+    .catch(() => {});
+  if (window.caches) caches.keys().then(keys => keys.forEach(k => caches.delete(k))).catch(() => {});
+}

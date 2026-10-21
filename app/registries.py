@@ -15,11 +15,12 @@ the container, never lands in a backup, and is never the only copy.
 
 import base64
 import json
+import logging
 import os
 import re
 import tempfile
 
-from . import config, crypto, db
+from . import activity, config, crypto, db
 
 # A registry host is a hostname with an optional port, as docker writes
 # it in an image reference: docker.io, registry.example.com:5000,
@@ -87,11 +88,24 @@ def delete(registry_id: int) -> str | None:
     return row["host"]
 
 
+def _say_unreadable(host: str) -> None:
+    """A saved token that cannot be decrypted (the secret key was changed)
+    would otherwise show up only as an unrelated pull failure."""
+    message = f"The saved token for {host} could not be read. Enter it again in Settings."
+    try:
+        activity.log("warning", "registry", message,
+                     "The secret key is not the one the token was saved with.")
+    except Exception:  # the log is not ready yet, as at start-up
+        logging.getLogger("dockup").warning(message)
+
+
 def docker_config(rows) -> dict:
     auths = {}
     for r in rows:
         token = crypto.decrypt(r["token_enc"]) if r["token_enc"] else ""
         if not token:
+            if r["token_enc"]:
+                _say_unreadable(r["host"])
             continue  # undecryptable after a SECRET_KEY change - skip, don't write junk
         pair = f"{r['username']}:{token}".encode()
         auths[r["host"]] = {"auth": base64.b64encode(pair).decode()}

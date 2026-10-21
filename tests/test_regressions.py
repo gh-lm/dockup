@@ -1,4 +1,4 @@
-"""Regression tests for the six High findings of the independent review.
+"""Regression tests for faults that were reproduced and then fixed.
 
 Each one was reproduced against the code as it stood before it was fixed,
 by running it rather than reading it. They go through the real HTTP

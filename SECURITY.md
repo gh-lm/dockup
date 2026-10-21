@@ -62,8 +62,9 @@ the Dockerfile and the optional companion. It does not cover:
   clears the cookie in the browser; a stolen cookie stays valid until it
   expires (seven days), or until Dockup's `SECRET_KEY` changes
 - Passwords hashed with Werkzeug's scrypt-based hasher, never stored in plain text
-- All other secrets (SMTP credentials, etc.) encrypted at rest with a key
-  derived from `SECRET_KEY`, and never echoed back to the browser
+- All other secrets (SMTP credentials, the two-factor secret, etc.) encrypted
+  at rest with a key derived from `SECRET_KEY`, and never echoed back to the
+  browser
 - Private-registry tokens (Settings -> Private registries) are encrypted
   at rest in the database and never returned to the browser. Docker only
   reads credentials from a config.json, so Dockup writes the decrypted

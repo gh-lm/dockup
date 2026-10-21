@@ -78,6 +78,8 @@ will just explain what happened and how to fix it by hand.
 
 ## First steps after install
 
+0. **Create the admin account straight after starting Dockup.** Until one
+   exists, whoever opens the page first can create it.
 1. **Settings → Email alerts**: fill in SMTP and press *Send test email*.
    Until this works, error alerts only show in Activity.
 2. **Settings → Account**: consider switching on 2FA.
@@ -258,6 +260,18 @@ the one thing this must never do.
 Press *Run them now* in Settings to see it work rather than waiting
 until the morning.
 
+## Locked out by two-factor codes
+
+Two-factor secrets are stored encrypted with a key made from `SECRET_KEY`.
+If that key was changed, or the authenticator is lost, the codes stop
+working and nobody can sign in. From the machine Dockup runs on, switch
+two-factor off for every account, then sign in with the password alone and
+set it up again in Settings:
+
+```bash
+docker exec dockup python -c "import sqlite3;c=sqlite3.connect('/app/data/dockup.db');c.execute('UPDATE users SET totp_enabled=0, totp_secret=NULL');c.commit()"
+```
+
 ## If Dockup is down
 
 ```bash
@@ -357,6 +371,16 @@ Backups → *Download everything (zip)* gives you the stacks folder and
 Dockup's database in one file. The stacks folder alone is enough to run
 everything with plain `docker compose` anywhere - no lock-in.
 
+## Updating dependencies
+
+`requirements.in` lists what Dockup needs, and `requirements.txt` is built
+from it with every version fixed and every download checked by hash, so two
+builds of the same tag are the same. To take newer versions, run
+`tools/lock-requirements.sh`, run the tests, build the image, and commit the
+new `requirements.txt`. The base images in the `Dockerfile` and the helper
+image in `app/runtime.py` are fixed by digest in the same way; change a
+digest on purpose when you want a newer one.
+
 ## Publishing a new version
 
 GitHub builds and publishes the image; nothing needs building on your own
@@ -365,13 +389,13 @@ machine. Put the new number in `VERSION` in `app/config.py` and on top of
 number and push the tag:
 
 ```bash
-git tag v1.2.0
-git push origin v1.2.0
+git tag v1.2.1
+git push origin v1.2.1
 ```
 
 The workflow in `.github/workflows/image.yml` checks the tag matches
 `VERSION`, builds for amd64 and arm64, and publishes
-`ghcr.io/gh-lm/dockup:1.2.0` and `:latest`. The first time, set the package's
+`ghcr.io/gh-lm/dockup:1.2.1` and `:latest`. The first time, set the package's
 visibility to public in the repository's package settings on GitHub so that
 anyone can pull it without signing in.
 

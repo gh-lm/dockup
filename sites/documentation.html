@@ -89,7 +89,7 @@
 curl -fsSL -o compose.yaml https://raw.githubusercontent.com/gh-lm/dockup/main/compose.yaml
 echo &quot;SECRET_KEY=$(python3 -c &#x27;import secrets;print(secrets.token_urlsafe(48))&#x27;)&quot; &gt; .env
 docker compose up -d</code></pre>
-<p>Open &lt;http://localhost:4000&gt; and create the admin account.</p>
+<p>Open &lt;http://localhost:4000&gt; and create the admin account straight away: until an account exists, whoever opens the page first can create it.</p>
 <p>The secret key signs your login, so it has to be yours alone. Dockup refuses to start while it is missing, short, or still the example value, and tells you why in one line. It is the only setting that lives outside Dockup&#x27;s own Settings page.</p>
 <p>To update, open Dockup in its own list and press Update, the same as for any other stack. From a terminal it is the usual:</p>
 <pre><code>docker compose pull &amp;&amp; docker compose up -d</code></pre>
@@ -279,7 +279,7 @@ python -m pytest tests</code></pre>
     <p class="legal-text">
       &copy; Lightmorphic Ltd. Registered in England and Wales, company number 17423646.<br>
       Registered office: 82A James Carter Road, Mildenhall, IP28 7DE.<br>
-      Page last updated: <time datetime="2026-10-19">19 October 2026</time>.
+      Page last updated: <time datetime="2026-10-21">21 October 2026</time>.
     </p>
     <nav class="legal-links" aria-label="Legal">
       <a href="privacy.html">Privacy</a>

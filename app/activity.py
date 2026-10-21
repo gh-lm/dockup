@@ -168,6 +168,9 @@ def send_email(subject: str, body: str, override: dict | None = None):
             _LOGO_PATH.read_bytes(), maintype="image", subtype="png", cid=f"<{_LOGO_CID}>",
         )
 
+    if security == "none" and s["smtp.username"]:
+        raise ValueError("A username and password are only sent over a protected connection. "
+                         "Choose STARTTLS or TLS for the mail server.")
     ctx = ssl.create_default_context()
     if security == "tls":
         server = smtplib.SMTP_SSL(host, port, timeout=15, context=ctx)

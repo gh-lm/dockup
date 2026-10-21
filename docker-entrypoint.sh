@@ -38,6 +38,12 @@ chown dockup:dockup "$DOCKUP_DATA" 2>/dev/null || true
 for SOCK in /var/run/docker.sock /run/dockup-companion.sock; do
   if [ -S "$SOCK" ]; then
     SOCK_GID=$(stat -c '%g' "$SOCK")
+    # Group 0 owns far more than a socket, so Dockup is never added to it.
+    if [ "$SOCK_GID" = "0" ]; then
+      echo "Warning: $SOCK belongs to group root. Dockup will not join that group;" >&2
+      echo "give the socket its own group, or add group_add to compose.yaml." >&2
+      continue
+    fi
     if ! getent group "$SOCK_GID" >/dev/null 2>&1; then
       addgroup -g "$SOCK_GID" "grp$SOCK_GID"
     fi

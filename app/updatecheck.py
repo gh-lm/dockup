@@ -1,7 +1,8 @@
 """Checks every managed, running stack for a newer image every 30
-minutes and records the result - never pulls automatically, just flags
-it so the dashboard can show an update badge. Applying an update is
-still a deliberate click on the stack's own Update button.
+minutes and records the result so the dashboard can show an update badge.
+To tell, each pass downloads the newest image for every such stack, which
+uses some bandwidth and disk, but it never recreates a container: applying
+an update is still a deliberate click on the stack's own Update button.
 """
 
 import threading

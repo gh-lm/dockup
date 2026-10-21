@@ -58,12 +58,14 @@
         <li><a href="#pull-from-a-private-registry">Pull from a private registry</a></li>
         <li><a href="#per-machine-settings-compose-override-yaml">Per-machine settings: compose.override.yaml</a></li>
         <li><a href="#dumps-before-a-backup">Dumps before a backup</a></li>
+        <li><a href="#locked-out-by-two-factor-codes">Locked out by two-factor codes</a></li>
         <li><a href="#if-dockup-is-down">If Dockup is down</a></li>
         <li><a href="#a-stack-says-it-s-running-but-nothing-can-reach-it">A stack says it&#x27;s running but nothing can reach it</a></li>
         <li><a href="#tailscale-serve-gets-no-certificate-for-a-port">Tailscale Serve gets no certificate for a port</a></li>
         <li><a href="#when-a-stack-can-t-be-checked-for-an-update">When a stack can&#x27;t be checked for an update</a></li>
         <li><a href="#uptime-check">Uptime check</a></li>
         <li><a href="#full-export-moving-house">Full export / moving house</a></li>
+        <li><a href="#updating-dependencies">Updating dependencies</a></li>
         <li><a href="#publishing-a-new-version">Publishing a new version</a></li>
       </ul>
     </nav>
@@ -103,6 +105,9 @@ cd /tmp/dockup-companion/companion &amp;&amp; sudo sh install.sh</code></pre>
 <section class="panel doc" id="first-steps-after-install">
 <h2>First steps after install</h2>
 <ol><li>
+<strong>Create the admin account straight after starting Dockup.</strong> Until one
+ exists, whoever opens the page first can create it.
+</li><li>
 <strong>Settings → Email alerts</strong>: fill in SMTP and press *Send test email*.
  Until this works, error alerts only show in Activity.
 </li><li>
@@ -199,6 +204,11 @@ Press Test. &quot;Signed in&quot; means it worked. Then Save registry.
 <p>A dump that fails leaves the last good one exactly where it is and says so, with its age. Overwriting a known good archive with an empty one is the one thing this must never do.</p>
 <p>Press *Run them now* in Settings to see it work rather than waiting until the morning.</p>
 </section>
+<section class="panel doc" id="locked-out-by-two-factor-codes">
+<h2>Locked out by two-factor codes</h2>
+<p>Two-factor secrets are stored encrypted with a key made from <code>SECRET_KEY</code>. If that key was changed, or the authenticator is lost, the codes stop working and nobody can sign in. From the machine Dockup runs on, switch two-factor off for every account, then sign in with the password alone and set it up again in Settings:</p>
+<pre><code>docker exec dockup python -c &quot;import sqlite3;c=sqlite3.connect(&#x27;/app/data/dockup.db&#x27;);c.execute(&#x27;UPDATE users SET totp_enabled=0, totp_secret=NULL&#x27;);c.commit()&quot;</code></pre>
+</section>
 <section class="panel doc" id="if-dockup-is-down">
 <h2>If Dockup is down</h2>
 <pre><code>cd /opt/dockup &amp;&amp; docker compose ps      # is it running?
@@ -248,12 +258,16 @@ docker compose up -d                     # start it again</code></pre>
 <h2>Full export / moving house</h2>
 <p>Backups → *Download everything (zip)* gives you the stacks folder and Dockup&#x27;s database in one file. The stacks folder alone is enough to run everything with plain <code>docker compose</code> anywhere - no lock-in.</p>
 </section>
+<section class="panel doc" id="updating-dependencies">
+<h2>Updating dependencies</h2>
+<p><code>requirements.in</code> lists what Dockup needs, and <code>requirements.txt</code> is built from it with every version fixed and every download checked by hash, so two builds of the same tag are the same. To take newer versions, run <code>tools/lock-requirements.sh</code>, run the tests, build the image, and commit the new <code>requirements.txt</code>. The base images in the <code>Dockerfile</code> and the helper image in <code>app/runtime.py</code> are fixed by digest in the same way; change a digest on purpose when you want a newer one.</p>
+</section>
 <section class="panel doc" id="publishing-a-new-version">
 <h2>Publishing a new version</h2>
 <p>GitHub builds and publishes the image; nothing needs building on your own machine. Put the new number in <code>VERSION</code> in <code>app/config.py</code> and on top of <code>CHANGELOG.md</code>, commit, then tag that commit with a <code>v</code> in front of the number and push the tag:</p>
-<pre><code>git tag v1.2.0
-git push origin v1.2.0</code></pre>
-<p>The workflow in <code>.github/workflows/image.yml</code> checks the tag matches <code>VERSION</code>, builds for amd64 and arm64, and publishes <code>ghcr.io/gh-lm/dockup:1.2.0</code> and <code>:latest</code>. The first time, set the package&#x27;s visibility to public in the repository&#x27;s package settings on GitHub so that anyone can pull it without signing in.</p>
+<pre><code>git tag v1.2.1
+git push origin v1.2.1</code></pre>
+<p>The workflow in <code>.github/workflows/image.yml</code> checks the tag matches <code>VERSION</code>, builds for amd64 and arm64, and publishes <code>ghcr.io/gh-lm/dockup:1.2.1</code> and <code>:latest</code>. The first time, set the package&#x27;s visibility to public in the repository&#x27;s package settings on GitHub so that anyone can pull it without signing in.</p>
 <p>To try an image on your own machine before tagging, <code>tools/build-image.sh</code> builds it locally as <code>dockup:&lt;version&gt;</code> without pushing anything.</p>
 <p>Once it is published, every install sees it the same way it sees a newer image for any other stack: Dockup&#x27;s own card shows an update is waiting at the next check, and pressing Update pulls it.</p>
 </section>
@@ -332,7 +346,7 @@ git push origin v1.2.0</code></pre>
     <p class="legal-text">
       &copy; Lightmorphic Ltd. Registered in England and Wales, company number 17423646.<br>
       Registered office: 82A James Carter Road, Mildenhall, IP28 7DE.<br>
-      Page last updated: <time datetime="2026-10-19">19 October 2026</time>.
+      Page last updated: <time datetime="2026-10-21">21 October 2026</time>.
     </p>
     <nav class="legal-links" aria-label="Legal">
       <a href="privacy.html">Privacy</a>

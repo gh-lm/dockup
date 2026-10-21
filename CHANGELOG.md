@@ -1,7 +1,42 @@
 # Changelog
 
-Three releases, each listing the changes that matter most rather than every
-small fix along the way.
+Each release lists the changes that matter most rather than every small fix
+along the way.
+
+## 1.2.1 - 2026-10-21
+
+Hardening and accessibility, from a second independent review.
+
+- **Two-factor secrets are encrypted at rest**, like every other secret.
+  Secrets saved by an earlier version are encrypted the first time Dockup
+  starts
+- **Builds are reproducible.** Every dependency is fixed to an exact version
+  and checked by hash, the base image and the helper image are fixed by
+  digest, and the build workflow's actions are fixed to exact commits
+- **The helpers that restart Dockup or install the companion no longer
+  download anything.** They run in a private folder with a name nobody can
+  guess, and the Tailscale installer is downloaded to a file first and its
+  checksum shown
+- **Safer deletes and prunes.** A folder that another stack also mounts is
+  never offered for deletion with a stack's data, and unused volumes are
+  removed only from the list that was shown
+- **Restoring one stack's backup is safer.** It works out where the data goes
+  from the compose file being restored, refuses system folders and other
+  stacks' folders, shows the person the list before writing anything, needs
+  the stack stopped, and keeps the old compose file and .env beside the new
+  ones. Backups and restores of one stack no longer run at the same time as
+  anything else touching it
+- **A runaway dump is stopped** instead of filling the disk, and dump files
+  are readable only by their owner
+- **Settings that are paths or ports are checked** when saved, and a request
+  that is not what it should be gets a plain answer instead of an error page
+- **Easier for everyone to use.** Failures are announced to screen readers
+  and stay up long enough to read; tabs, the stack list and the colour
+  choices work from the keyboard; stack names are real links; a stopped stack
+  is grey rather than red and every state is also written in words; the
+  terminal can be left with the keyboard; the highlight colours all keep
+  readable text; and the page title follows the screen
+- The unused service worker is gone
 
 ## 1.2.0 - 2026-10-19
 
